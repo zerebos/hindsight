@@ -30,7 +30,7 @@ SELECT COUNT(*) FROM visits
 WHERE source_id = @source_id;
 
 -- name: GetLatestVisitTime :one
-SELECT COALESCE(MAX(visited_at), 0) FROM visits
+SELECT CAST(COALESCE(MAX(visited_at), 0) AS INTEGER) FROM visits
 WHERE source_id = @source_id;
 
 -- name: GetTopDomains :many
@@ -40,8 +40,8 @@ SELECT
 FROM visits v
 JOIN domains d ON v.domain_id = d.id
 WHERE
-    (@start_time = 0 OR v.visited_at >= @start_time) AND
-    (@end_time   = 0 OR v.visited_at <= @end_time)
+    (CAST(@start_time AS INTEGER) = 0 OR v.visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR v.visited_at <= CAST(@end_time   AS INTEGER))
 GROUP BY d.id, d.host
 ORDER BY total_visits DESC
 LIMIT @limit;
@@ -53,8 +53,8 @@ SELECT
     SUM(visit_count) AS total_visits
 FROM visits
 WHERE
-    (@start_time = 0 OR visited_at >= @start_time) AND
-    (@end_time   = 0 OR visited_at <= @end_time)
+    (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR visited_at <= CAST(@end_time   AS INTEGER))
 GROUP BY day
 ORDER BY day ASC;
 
@@ -70,11 +70,11 @@ SELECT
 FROM visits v
 JOIN domains d ON v.domain_id = d.id
 WHERE
-    (@text = ''   OR v.url   LIKE '%' || @text || '%'
-                  OR v.title LIKE '%' || @text || '%') AND
-    (@domain = '' OR d.host  = @domain) AND
-    (@start_time = 0 OR v.visited_at >= @start_time) AND
-    (@end_time   = 0 OR v.visited_at <= @end_time)
+    (CAST(@text   AS TEXT) = '' OR v.url   LIKE '%' || CAST(@text AS TEXT) || '%'
+                                OR v.title LIKE '%' || CAST(@text AS TEXT) || '%') AND
+    (CAST(@domain AS TEXT) = '' OR d.host  = CAST(@domain AS TEXT)) AND
+    (CAST(@start_time AS INTEGER) = 0 OR v.visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR v.visited_at <= CAST(@end_time   AS INTEGER))
 ORDER BY v.visited_at DESC
 LIMIT  @limit
 OFFSET @offset;
@@ -84,8 +84,8 @@ SELECT COUNT(*)
 FROM visits v
 JOIN domains d ON v.domain_id = d.id
 WHERE
-    (@text = ''   OR v.url   LIKE '%' || @text || '%'
-                  OR v.title LIKE '%' || @text || '%') AND
-    (@domain = '' OR d.host  = @domain) AND
-    (@start_time = 0 OR v.visited_at >= @start_time) AND
-    (@end_time   = 0 OR v.visited_at <= @end_time);
+    (CAST(@text   AS TEXT) = '' OR v.url   LIKE '%' || CAST(@text AS TEXT) || '%'
+                                OR v.title LIKE '%' || CAST(@text AS TEXT) || '%') AND
+    (CAST(@domain AS TEXT) = '' OR d.host  = CAST(@domain AS TEXT)) AND
+    (CAST(@start_time AS INTEGER) = 0 OR v.visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR v.visited_at <= CAST(@end_time   AS INTEGER));
