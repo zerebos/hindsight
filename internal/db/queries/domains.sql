@@ -1,13 +1,13 @@
 -- name: UpsertDomain :one
 INSERT INTO domains (host, created_at)
-VALUES (?, ?)
+VALUES (@host, @created_at)
 ON CONFLICT (host) DO UPDATE SET
     host = excluded.host
 RETURNING *;
 
 -- name: GetDomainByHost :one
 SELECT * FROM domains
-WHERE host = ?
+WHERE host = @host
 LIMIT 1;
 
 -- name: GetAllDomains :many
