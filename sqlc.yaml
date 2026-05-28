@@ -7,6 +7,5 @@ sql:
       go:
         package: "db"
         out: "internal/db/generated"
-        emit_rows_affected: true
         emit_result_struct_pointers: false
         emit_params_struct_pointers: false

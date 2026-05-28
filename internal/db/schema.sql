@@ -5,13 +5,13 @@
 
 CREATE TABLE IF NOT EXISTS sources (
     id             INTEGER PRIMARY KEY,
-    browser        TEXT    NOT NULL,  -- 'chrome' | 'firefox' | 'safari'
-    profile        TEXT    NOT NULL,  -- profile directory name or 'default'
-    path           TEXT    NOT NULL,  -- path to source DB or import file
-    label          TEXT,              -- user-facing name e.g. "Work Chrome"
-    last_synced_at INTEGER,           -- unix ms, NULL if never synced
-    last_error     TEXT,              -- NULL if last sync succeeded
-    last_error_at  INTEGER,           -- unix ms, NULL if no error
+    browser        TEXT    NOT NULL,         -- 'chrome' | 'firefox' | 'safari'
+    profile        TEXT    NOT NULL,         -- profile directory name or 'default'
+    path           TEXT    NOT NULL UNIQUE,  -- path to source DB or import file
+    label          TEXT,                     -- user-facing name e.g. "Work Chrome"
+    last_synced_at INTEGER,                  -- unix ms, NULL if never synced
+    last_error     TEXT,                     -- NULL if last sync succeeded
+    last_error_at  INTEGER,                  -- unix ms, NULL if no error
     created_at     INTEGER NOT NULL
 );
 
