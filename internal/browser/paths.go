@@ -45,6 +45,7 @@ func chromiumBasePath(windows, darwin, linux string) string {
 		if linux == "" {
 			return ""
 		}
+		// TODO: should follow XDG_CONFIG_HOME if set, but in practice Chromium variants always use ~/.config/<name>
 		return filepath.Join(homeDir(), ".config", linux)
 	}
 	return ""
@@ -69,7 +70,8 @@ func firefoxBasePath(windows, darwin, linux string) string {
 		if linux == "" {
 			return ""
 		}
-		return filepath.Join(homeDir(), ".mozilla", linux)
+		// TODO: should follow XDG_CONFIG_HOME if set, but in practice Firefox always uses ~/.config/firefox
+		return filepath.Join(homeDir(), ".config", linux)
 	}
 	return ""
 }
