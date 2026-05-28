@@ -11,22 +11,29 @@ import (
 )
 
 func main() {
-	// Resolve app data directory
-	appDir, err := config.AppDataDir()
+	// Resolve platform-appropriate directories
+	configDir, err := config.ConfigDir()
 	if err != nil {
-		log.Fatalf("failed to resolve app data dir: %v", err)
+		log.Fatalf("failed to resolve config dir: %v", err)
 	}
-	fmt.Printf("app data dir:      %s\n", appDir)
+
+	dataDir, err := config.DataDir()
+	if err != nil {
+		log.Fatalf("failed to resolve data dir: %v", err)
+	}
+
+	fmt.Printf("config dir:        %s\n", configDir)
+	fmt.Printf("data dir:          %s\n", dataDir)
 
 	// Load or create config
-	cfg, err := config.Load(config.ConfigPath(appDir))
+	cfg, err := config.Load(config.ConfigPath(configDir))
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
 	fmt.Printf("sync interval:     %d minutes\n", cfg.Sync.IntervalMinutes)
 
 	// Open database
-	dbPath := config.DBPath(appDir)
+	dbPath := config.DBPath(dataDir)
 	database, err := db.Open(dbPath)
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
@@ -35,7 +42,7 @@ func main() {
 	fmt.Printf("database ready:    %s\n", dbPath)
 
 	// Ensure browser cache dir exists
-	cacheDir := config.BrowserCacheDir(appDir)
+	cacheDir := config.BrowserCacheDir(dataDir)
 	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 		log.Fatalf("failed to create browser cache dir: %v", err)
 	}
