@@ -4,15 +4,16 @@
 -- visit_count reflects source browser behavior (always 1 for individual visit rows)
 
 CREATE TABLE IF NOT EXISTS sources (
-    id             INTEGER PRIMARY KEY,
-    browser        TEXT    NOT NULL,         -- 'chrome' | 'firefox' | 'safari'
-    profile        TEXT    NOT NULL,         -- profile directory name or 'default'
-    path           TEXT    NOT NULL UNIQUE,  -- path to source DB or import file
-    label          TEXT,                     -- user-facing name e.g. "Work Chrome"
-    last_synced_at INTEGER,                  -- unix ms, NULL if never synced
-    last_error     TEXT,                     -- NULL if last sync succeeded
-    last_error_at  INTEGER,                  -- unix ms, NULL if no error
-    created_at     INTEGER NOT NULL
+    id              INTEGER PRIMARY KEY,
+    browser         TEXT    NOT NULL,        -- 'chrome' | 'firefox' | 'safari'
+    profile         TEXT    NOT NULL,        -- profile directory name or 'default'
+    path            TEXT    NOT NULL UNIQUE, -- path to source DB or import file
+    label           TEXT,                    -- user-facing name e.g. "Work Chrome"
+    last_synced_at  INTEGER,                 -- wall clock unix ms of last sync run, for UI display
+    last_visit_seen INTEGER,                 -- unix ms of newest visit ingested, used as incremental checkpoint
+    last_error      TEXT,                    -- NULL if last sync succeeded
+    last_error_at   INTEGER,                 -- unix ms, NULL if no error
+    created_at      INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS domains (
@@ -38,8 +39,8 @@ CREATE TABLE IF NOT EXISTS visits (
 -- Stubbed for v2 AI tagging -- empty in v1
 CREATE TABLE IF NOT EXISTS tags (
     id         INTEGER PRIMARY KEY,
-    name       TEXT    NOT NULL UNIQUE,  -- e.g. "tech", "news", "social"
-    color      TEXT,                     -- hex color for UI display
+    name       TEXT    NOT NULL UNIQUE,          -- e.g. "tech", "news", "social"
+    color      TEXT,                             -- hex color for UI display
     source     TEXT    NOT NULL DEFAULT 'user',  -- 'user' | 'ai'
     created_at INTEGER NOT NULL
 );

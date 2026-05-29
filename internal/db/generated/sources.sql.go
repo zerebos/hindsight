@@ -20,7 +20,7 @@ func (q *Queries) DeleteSource(ctx context.Context, id int64) error {
 }
 
 const getAllSources = `-- name: GetAllSources :many
-SELECT id, browser, profile, path, label, last_synced_at, last_error, last_error_at, created_at FROM sources
+SELECT id, browser, profile, path, label, last_synced_at, last_visit_seen, last_error, last_error_at, created_at FROM sources
 ORDER BY browser, profile
 `
 
@@ -40,6 +40,7 @@ func (q *Queries) GetAllSources(ctx context.Context) ([]Source, error) {
 			&i.Path,
 			&i.Label,
 			&i.LastSyncedAt,
+			&i.LastVisitSeen,
 			&i.LastError,
 			&i.LastErrorAt,
 			&i.CreatedAt,
@@ -58,7 +59,7 @@ func (q *Queries) GetAllSources(ctx context.Context) ([]Source, error) {
 }
 
 const getSourceByPath = `-- name: GetSourceByPath :one
-SELECT id, browser, profile, path, label, last_synced_at, last_error, last_error_at, created_at FROM sources
+SELECT id, browser, profile, path, label, last_synced_at, last_visit_seen, last_error, last_error_at, created_at FROM sources
 WHERE path = ?1
 LIMIT 1
 `
@@ -73,6 +74,7 @@ func (q *Queries) GetSourceByPath(ctx context.Context, path string) (Source, err
 		&i.Path,
 		&i.Label,
 		&i.LastSyncedAt,
+		&i.LastVisitSeen,
 		&i.LastError,
 		&i.LastErrorAt,
 		&i.CreatedAt,
@@ -100,19 +102,21 @@ func (q *Queries) UpdateSourceSyncError(ctx context.Context, arg UpdateSourceSyn
 
 const updateSourceSyncSuccess = `-- name: UpdateSourceSyncSuccess :exec
 UPDATE sources
-SET last_synced_at = ?1,
-    last_error     = NULL,
-    last_error_at  = NULL
-WHERE id = ?2
+SET last_synced_at  = ?1,   -- wall clock time of this sync run
+    last_visit_seen = ?2,   -- newest visit timestamp ingested
+    last_error      = NULL,
+    last_error_at   = NULL
+WHERE id = ?3
 `
 
 type UpdateSourceSyncSuccessParams struct {
-	LastSyncedAt sql.NullInt64
-	ID           int64
+	LastSyncedAt  sql.NullInt64
+	LastVisitSeen sql.NullInt64
+	ID            int64
 }
 
 func (q *Queries) UpdateSourceSyncSuccess(ctx context.Context, arg UpdateSourceSyncSuccessParams) error {
-	_, err := q.db.ExecContext(ctx, updateSourceSyncSuccess, arg.LastSyncedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateSourceSyncSuccess, arg.LastSyncedAt, arg.LastVisitSeen, arg.ID)
 	return err
 }
 
@@ -123,7 +127,7 @@ ON CONFLICT (path) DO UPDATE SET
     label   = excluded.label,
     browser = excluded.browser,
     profile = excluded.profile
-RETURNING id, browser, profile, path, label, last_synced_at, last_error, last_error_at, created_at
+RETURNING id, browser, profile, path, label, last_synced_at, last_visit_seen, last_error, last_error_at, created_at
 `
 
 type UpsertSourceParams struct {
@@ -150,6 +154,7 @@ func (q *Queries) UpsertSource(ctx context.Context, arg UpsertSourceParams) (Sou
 		&i.Path,
 		&i.Label,
 		&i.LastSyncedAt,
+		&i.LastVisitSeen,
 		&i.LastError,
 		&i.LastErrorAt,
 		&i.CreatedAt,

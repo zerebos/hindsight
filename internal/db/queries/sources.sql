@@ -18,9 +18,10 @@ ORDER BY browser, profile;
 
 -- name: UpdateSourceSyncSuccess :exec
 UPDATE sources
-SET last_synced_at = @last_synced_at,
-    last_error     = NULL,
-    last_error_at  = NULL
+SET last_synced_at  = @last_synced_at,   -- wall clock time of this sync run
+    last_visit_seen = @last_visit_seen,   -- newest visit timestamp ingested
+    last_error      = NULL,
+    last_error_at   = NULL
 WHERE id = @id;
 
 -- name: UpdateSourceSyncError :exec

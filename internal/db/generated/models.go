@@ -23,15 +23,16 @@ type DomainTag struct {
 }
 
 type Source struct {
-	ID           int64
-	Browser      string
-	Profile      string
-	Path         string
-	Label        sql.NullString
-	LastSyncedAt sql.NullInt64
-	LastError    sql.NullString
-	LastErrorAt  sql.NullInt64
-	CreatedAt    int64
+	ID            int64
+	Browser       string
+	Profile       string
+	Path          string
+	Label         sql.NullString
+	LastSyncedAt  sql.NullInt64
+	LastVisitSeen sql.NullInt64
+	LastError     sql.NullString
+	LastErrorAt   sql.NullInt64
+	CreatedAt     int64
 }
 
 type Tag struct {

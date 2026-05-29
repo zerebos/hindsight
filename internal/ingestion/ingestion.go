@@ -18,8 +18,8 @@ import (
 // Exception: Safari timestamps are converted to unix ms in the reader
 // since RawVisit.VisitedAt is int64 and Safari uses float64 natively.
 type RawVisit struct {
-	URL       string
-	Title     string
+	URL   string
+	Title string
 	// VisitedAt holds the raw timestamp in the source browser's native format
 	// EXCEPT for Safari where it holds unix milliseconds already.
 	//   Chromium: microseconds since Jan 1, 1601  → ChromiumTimeToUnixMs()
@@ -55,18 +55,21 @@ func NewSyncer(database *sql.DB, cacheDir string) *Syncer {
 }
 
 // SyncSource runs a full ingestion cycle for a single source:
-//   1. Look up the source and its last sync checkpoint
-//   2. Copy the source DB to the cache directory
-//   3. Read raw visits newer than the checkpoint
-//   4. Normalize and write each visit to the internal DB
-//   5. Update the source's last_synced_at on success, or last_error on failure
+//  1. Determine the incremental checkpoint from last_visit_seen
+//  2. Copy the source DB to the cache directory
+//  3. Read raw visits newer than the checkpoint
+//  4. Normalize and write each visit to the internal DB
+//  5. Update last_synced_at (wall clock) and last_visit_seen (checkpoint)
 func (s *Syncer) SyncSource(ctx context.Context, source dbgen.Source) SyncResult {
 	result := SyncResult{SourceID: source.ID}
 
-	// Step 1: determine the incremental checkpoint in native browser time
-	lastSyncedMs := int64(0)
-	if source.LastSyncedAt.Valid {
-		lastSyncedMs = source.LastSyncedAt.Int64
+	// Step 1: determine the incremental checkpoint from last_visit_seen.
+	// last_visit_seen holds the newest visit timestamp we've ingested —
+	// this is used as the WHERE clause lower bound, not last_synced_at
+	// which is only for UI display purposes.
+	lastVisitSeenMs := int64(0)
+	if source.LastVisitSeen.Valid {
+		lastVisitSeenMs = source.LastVisitSeen.Int64
 	}
 
 	// Step 2: copy the source DB
@@ -84,20 +87,22 @@ func (s *Syncer) SyncSource(ctx context.Context, source dbgen.Source) SyncResult
 	}()
 
 	// Step 3: read raw visits from the copied DB
-	rawVisits, err := s.readSource(source.Browser, copiedPath, lastSyncedMs)
+	rawVisits, err := s.readSource(source.Browser, copiedPath, lastVisitSeenMs)
 	if err != nil {
 		result.Error = fmt.Errorf("read source: %w", err)
 		s.recordError(ctx, source.ID, result.Error)
 		return result
 	}
 
+	now := time.Now().UnixMilli()
+
 	if len(rawVisits) == 0 {
-		// Nothing new — update last_synced_at to now so we don't re-scan
-		// the same window on the next run
-		now := time.Now().UnixMilli()
+		// Nothing new — still update last_synced_at so the UI shows
+		// an accurate "last checked" time, but leave last_visit_seen unchanged
 		if err := s.queries.UpdateSourceSyncSuccess(ctx, dbgen.UpdateSourceSyncSuccessParams{
-			LastSyncedAt: sql.NullInt64{Int64: now, Valid: true},
-			ID:           source.ID,
+			LastSyncedAt:  sql.NullInt64{Int64: now, Valid: true},
+			LastVisitSeen: source.LastVisitSeen, // unchanged
+			ID:            source.ID,
 		}); err != nil {
 			log.Printf("warning: failed to update last_synced_at for source %d: %v", source.ID, err)
 		}
@@ -115,13 +120,15 @@ func (s *Syncer) SyncSource(ctx context.Context, source dbgen.Source) SyncResult
 		return result
 	}
 
-	// Update checkpoint to the most recent visit we successfully ingested,
-	// not wall clock time — ensures we never skip visits if a sync is interrupted
+	// Update both fields:
+	//   last_synced_at  = now (wall clock, for UI display)
+	//   last_visit_seen = latestVisitedAt (newest visit, for next checkpoint)
 	if err := s.queries.UpdateSourceSyncSuccess(ctx, dbgen.UpdateSourceSyncSuccessParams{
-		LastSyncedAt: sql.NullInt64{Int64: latestVisitedAt, Valid: true},
-		ID:           source.ID,
+		LastSyncedAt:  sql.NullInt64{Int64: now, Valid: true},
+		LastVisitSeen: sql.NullInt64{Int64: latestVisitedAt, Valid: true},
+		ID:            source.ID,
 	}); err != nil {
-		log.Printf("warning: failed to update last_synced_at for source %d: %v", source.ID, err)
+		log.Printf("warning: failed to update sync success for source %d: %v", source.ID, err)
 	}
 
 	return result
@@ -130,16 +137,16 @@ func (s *Syncer) SyncSource(ctx context.Context, source dbgen.Source) SyncResult
 // readSource dispatches to the correct browser reader based on browser type.
 // Returns raw visits with timestamps in native browser format, except Safari
 // which converts to unix ms in its reader.
-func (s *Syncer) readSource(browser, copiedPath string, lastSyncedMs int64) ([]RawVisit, error) {
+func (s *Syncer) readSource(browser, copiedPath string, lastVisitSeenMs int64) ([]RawVisit, error) {
 	// Chromium-based browsers all share the same History schema
 	chromiumBrowsers := map[string]struct{}{
-		"chrome":   {},
-		"edge":     {},
-		"brave":    {},
-		"arc":      {},
-		"vivaldi":  {},
-		"opera":    {},
-		"helium":   {},
+		"chrome":  {},
+		"edge":    {},
+		"brave":   {},
+		"arc":     {},
+		"vivaldi": {},
+		"opera":   {},
+		"helium":  {},
 	}
 
 	// Firefox-based browsers all share the same places.sqlite schema
@@ -152,15 +159,15 @@ func (s *Syncer) readSource(browser, copiedPath string, lastSyncedMs int64) ([]R
 
 	switch {
 	case isIn(browser, chromiumBrowsers):
-		since := UnixMsToChromiumTime(lastSyncedMs)
+		since := UnixMsToChromiumTime(lastVisitSeenMs)
 		return readChromiumHistory(copiedPath, since)
 
 	case isIn(browser, firefoxBrowsers):
-		since := UnixMsToFirefoxTime(lastSyncedMs)
+		since := UnixMsToFirefoxTime(lastVisitSeenMs)
 		return readFirefoxHistory(copiedPath, since)
 
 	case browser == "safari":
-		since := UnixMsToSafariTime(lastSyncedMs)
+		since := UnixMsToSafariTime(lastVisitSeenMs)
 		return readSafariHistory(copiedPath, since)
 
 	default:
@@ -169,8 +176,8 @@ func (s *Syncer) readSource(browser, copiedPath string, lastSyncedMs int64) ([]R
 }
 
 // writeVisits normalizes raw visits and writes them to the internal DB
-// in a single transaction. Returns the count of new rows written, count
-// of skipped rows, the unix ms timestamp of the latest visit written,
+// in a single transaction. Returns number of new rows written, number
+// of skipped rows, the unix timestamp of the latest visit written,
 // and any error.
 func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source dbgen.Source) (newVisits, skipped int, latestVisitedAt int64, err error) {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -197,11 +204,11 @@ func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source d
 			continue
 		}
 
-		// Normalize URL — strip tracking params, extract domain
+		// Normalize URL, strip tracking params, extract domain
 		normalizedURL, rawURL := NormalizeURL(raw.URL)
 		host := ExtractDomain(normalizedURL)
 
-		// Skip visits with no extractable domain (e.g. about:blank, chrome://newtab)
+		// Skip internal browser URLs with no extractable domain
 		if host == "" {
 			skipped++
 			continue
@@ -273,7 +280,6 @@ func toUnixMs(browser string, raw int64) int64 {
 	case "firefox", "zen", "librewolf", "floorp":
 		return FirefoxTimeToUnixMs(raw)
 	default:
-		// All Chromium-based browsers
 		return ChromiumTimeToUnixMs(raw)
 	}
 }
@@ -281,9 +287,9 @@ func toUnixMs(browser string, raw int64) int64 {
 // recordError persists a sync error against a source record.
 func (s *Syncer) recordError(ctx context.Context, sourceID int64, syncErr error) {
 	if err := s.queries.UpdateSourceSyncError(ctx, dbgen.UpdateSourceSyncErrorParams{
-		LastError:    sql.NullString{String: syncErr.Error(), Valid: true},
-		LastErrorAt:  sql.NullInt64{Int64: time.Now().UnixMilli(), Valid: true},
-		ID:           sourceID,
+		LastError:   sql.NullString{String: syncErr.Error(), Valid: true},
+		LastErrorAt: sql.NullInt64{Int64: time.Now().UnixMilli(), Valid: true},
+		ID:          sourceID,
 	}); err != nil {
 		log.Printf("warning: failed to record sync error for source %d: %v", sourceID, err)
 	}
@@ -296,8 +302,7 @@ func isIn(key string, set map[string]struct{}) bool {
 }
 
 // SyncAll runs SyncSource for every source in the database concurrently.
-// Each source runs in its own goroutine. Results are collected and returned
-// after all sources complete.
+// Results are collected and returned after all sources complete.
 func (s *Syncer) SyncAll(ctx context.Context) []SyncResult {
 	sources, err := s.queries.GetAllSources(ctx)
 	if err != nil {
@@ -311,7 +316,7 @@ func (s *Syncer) SyncAll(ctx context.Context) []SyncResult {
 	resultCh := make(chan SyncResult, len(sources))
 
 	for _, src := range sources {
-		src := src // capture loop variable
+		src := src // Capture loop variable
 		go func() {
 			resultCh <- s.SyncSource(ctx, src)
 		}()
