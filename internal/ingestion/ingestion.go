@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	dbgen "github.com/zerebos/hindsight/internal/db/generated"
@@ -42,6 +43,7 @@ type Syncer struct {
 	db       *sql.DB
 	queries  *dbgen.Queries
 	cacheDir string
+	writeMu  sync.Mutex // serializes writes to the internal DB across concurrent goroutines
 }
 
 // NewSyncer creates a Syncer using the provided database connection and
@@ -98,29 +100,37 @@ func (s *Syncer) SyncSource(ctx context.Context, source dbgen.Source) SyncResult
 
 	if len(rawVisits) == 0 {
 		// Nothing new — still update last_synced_at so the UI shows
-		// an accurate "last checked" time, but leave last_visit_seen unchanged
-		if err := s.queries.UpdateSourceSyncSuccess(ctx, dbgen.UpdateSourceSyncSuccessParams{
+		// an accurate "last checked" time, but leave last_visit_seen unchanged.
+		// Use writeMu for consistency even though this is a lightweight UPDATE.
+		s.writeMu.Lock()
+		err := s.queries.UpdateSourceSyncSuccess(ctx, dbgen.UpdateSourceSyncSuccessParams{
 			LastSyncedAt:  sql.NullInt64{Int64: now, Valid: true},
 			LastVisitSeen: source.LastVisitSeen, // unchanged
 			ID:            source.ID,
-		}); err != nil {
+		})
+		s.writeMu.Unlock()
+		if err != nil {
 			log.Printf("warning: failed to update last_synced_at for source %d: %v", source.ID, err)
 		}
 		return result
 	}
 
-	// Steps 4 + 5: normalize and write in a single transaction
+	// Steps 4 + 5: normalize and write — serialized via writeMu so concurrent
+	// goroutines don't contend on the internal DB. The copy+read steps above
+	// still run concurrently; only the write phase is gated.
+	s.writeMu.Lock()
 	newVisits, skipped, latestVisitedAt, err := s.writeVisits(ctx, rawVisits, source)
 	result.NewVisits = newVisits
 	result.Skipped = skipped
 
 	if err != nil {
+		s.writeMu.Unlock()
 		result.Error = fmt.Errorf("write visits: %w", err)
 		s.recordError(ctx, source.ID, result.Error)
 		return result
 	}
 
-	// Update both fields:
+	// Update both fields while still holding the lock:
 	//   last_synced_at  = now (wall clock, for UI display)
 	//   last_visit_seen = latestVisitedAt (newest visit, for next checkpoint)
 	if err := s.queries.UpdateSourceSyncSuccess(ctx, dbgen.UpdateSourceSyncSuccessParams{
@@ -130,6 +140,7 @@ func (s *Syncer) SyncSource(ctx context.Context, source dbgen.Source) SyncResult
 	}); err != nil {
 		log.Printf("warning: failed to update sync success for source %d: %v", source.ID, err)
 	}
+	s.writeMu.Unlock()
 
 	return result
 }
@@ -242,7 +253,7 @@ func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source d
 		}
 
 		// Insert visit — ON CONFLICT DO NOTHING handles dedup silently
-		if err := qtx.InsertVisit(ctx, dbgen.InsertVisitParams{
+		result, err := qtx.InsertVisit(ctx, dbgen.InsertVisitParams{
 			Url:        normalizedURL,
 			RawUrl:     rawURLNull,
 			Title:      titleNull,
@@ -252,15 +263,22 @@ func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source d
 			DurationMs: durationNull,
 			VisitCount: 1,
 			CreatedAt:  now,
-		}); err != nil {
+		});
+
+		if err != nil {
 			skipped++
 			log.Printf("debug: failed to insert visit for url %q: %v", normalizedURL, err)
 			continue
 		}
 
-		newVisits++
-		if visitedAtMs > latestVisitedAt {
-			latestVisitedAt = visitedAtMs
+		// Only count as new if the row was actually inserted,
+		// not silently skipped by ON CONFLICT DO NOTHING
+		affected, _ := result.RowsAffected()
+		if affected > 0 {
+			newVisits++
+			if visitedAtMs > latestVisitedAt {
+				latestVisitedAt = visitedAtMs
+			}
 		}
 	}
 

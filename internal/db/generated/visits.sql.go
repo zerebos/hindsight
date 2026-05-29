@@ -170,7 +170,7 @@ func (q *Queries) GetVisitTimeSeries(ctx context.Context, arg GetVisitTimeSeries
 	return items, nil
 }
 
-const insertVisit = `-- name: InsertVisit :exec
+const insertVisit = `-- name: InsertVisit :execresult
 INSERT INTO visits (
     url,
     raw_url,
@@ -207,8 +207,8 @@ type InsertVisitParams struct {
 	CreatedAt  int64
 }
 
-func (q *Queries) InsertVisit(ctx context.Context, arg InsertVisitParams) error {
-	_, err := q.db.ExecContext(ctx, insertVisit,
+func (q *Queries) InsertVisit(ctx context.Context, arg InsertVisitParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, insertVisit,
 		arg.Url,
 		arg.RawUrl,
 		arg.Title,
@@ -219,7 +219,6 @@ func (q *Queries) InsertVisit(ctx context.Context, arg InsertVisitParams) error 
 		arg.VisitCount,
 		arg.CreatedAt,
 	)
-	return err
 }
 
 const searchVisits = `-- name: SearchVisits :many

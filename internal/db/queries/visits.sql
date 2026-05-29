@@ -1,4 +1,4 @@
--- name: InsertVisit :exec
+-- name: InsertVisit :execresult
 INSERT INTO visits (
     url,
     raw_url,
