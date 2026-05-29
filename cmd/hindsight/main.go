@@ -1,16 +1,23 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/zerebos/hindsight/internal/browser"
 	"github.com/zerebos/hindsight/internal/config"
 	"github.com/zerebos/hindsight/internal/db"
+	dbgen "github.com/zerebos/hindsight/internal/db/generated"
+	"github.com/zerebos/hindsight/internal/ingestion"
 )
 
 func main() {
+	ctx := context.Background()
+
 	// Resolve platform-appropriate directories
 	configDir, err := config.ConfigDir()
 	if err != nil {
@@ -48,22 +55,69 @@ func main() {
 	}
 	fmt.Printf("browser cache dir: %s\n\n", cacheDir)
 
-	// Discover installed browsers
-	fmt.Println("scanning for browsers...")
-	sources, errs := browser.Discover()
+	queries := dbgen.New(database)
 
+	// Discover and register sources
+	fmt.Println("scanning for browsers...")
+	detected, errs := browser.Discover()
 	for _, e := range errs {
 		fmt.Printf("  warning: %v\n", e)
 	}
 
-	if len(sources) == 0 {
+	if len(detected) == 0 {
 		fmt.Println("  no browsers found")
-	} else {
-		fmt.Printf("  found %d profile(s):\n", len(sources))
-		for _, s := range sources {
-			fmt.Printf("    [%s] %s\n", s.Browser, s.Label)
-			fmt.Printf("           profile: %s\n", s.Profile)
-			fmt.Printf("           path:    %s\n", s.Path)
+		return
+	}
+
+	fmt.Printf("  found %d profile(s) — registering sources...\n", len(detected))
+	for _, d := range detected {
+		src, err := queries.UpsertSource(ctx, dbgen.UpsertSourceParams{
+			Browser:   d.Browser,
+			Profile:   d.Profile,
+			Path:      d.Path,
+			Label:     sql.NullString{String: d.Label, Valid: true},
+			CreatedAt: time.Now().UnixMilli(),
+		})
+		if err != nil {
+			log.Printf("  warning: failed to register source %q: %v", d.Label, err)
+			continue
 		}
+		fmt.Printf("  registered: [%d] %s\n", src.ID, src.Label.String)
+	}
+
+	// Run sync across all sources
+	fmt.Println("\nsyncing history...")
+	syncer := ingestion.NewSyncer(database, cacheDir)
+	results := syncer.SyncAll(ctx)
+
+	totalNew := 0
+	totalSkipped := 0
+	for _, r := range results {
+		src, _ := queries.GetAllSources(ctx)
+		label := fmt.Sprintf("source %d", r.SourceID)
+		for _, s := range src {
+			if s.ID == r.SourceID {
+				label = s.Label.String
+				break
+			}
+		}
+
+		if r.Error != nil {
+			fmt.Printf("  %-40s error: %v\n", label, r.Error)
+		} else {
+			fmt.Printf("  %-40s new: %-8d skipped: %d\n", label, r.NewVisits, r.Skipped)
+		}
+		totalNew += r.NewVisits
+		totalSkipped += r.Skipped
+	}
+
+	fmt.Printf("\ntotal new visits: %d  skipped: %d\n", totalNew, totalSkipped)
+
+	// Verify row counts
+	count, err := queries.CountVisits(ctx)
+	if err != nil {
+		log.Printf("warning: count query failed: %v", err)
+	} else {
+		fmt.Printf("total visits in db: %d\n", count)
 	}
 }
