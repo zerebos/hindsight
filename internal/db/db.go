@@ -2,17 +2,14 @@ package db
 
 import (
 	"database/sql"
-	_ "embed"
 	"fmt"
 
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql
-var schema string
-
 // Open opens (or creates) the Hindsight SQLite database at the given path,
-// applies the schema, and configures pragmas for performance and safety.
+// applies any pending migrations, and configures pragmas for performance
+// and safety.
 func Open(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -59,15 +56,5 @@ func configure(db *sql.DB) error {
 		}
 	}
 
-	return nil
-}
-
-// migrate runs the embedded schema SQL to create tables and indexes
-// if they don't already exist. Safe to call on every open thanks to
-// IF NOT EXISTS guards in schema.sql.
-func migrate(db *sql.DB) error {
-	if _, err := db.Exec(schema); err != nil {
-		return fmt.Errorf("run schema: %w", err)
-	}
 	return nil
 }
