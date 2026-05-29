@@ -146,9 +146,11 @@ func ExtractDomain(rawURL string) string {
 		return ""
 	}
 
-	// Strip www. prefix — www.github.com and github.com are the same domain
-	// for analytics purposes
-	host = strings.TrimPrefix(host, "www.")
+	// Strip www. prefix case-insensitively — www.github.com and github.com are
+	// the same domain for analytics purposes.
+	if strings.HasPrefix(strings.ToLower(host), "www.") {
+		host = host[4:]
+	}
 
 	return strings.ToLower(host)
 }

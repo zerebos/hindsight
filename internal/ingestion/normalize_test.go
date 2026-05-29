@@ -66,6 +66,18 @@ func TestNormalizeURL(t *testing.T) {
 			wantOriginal:   "https://example.com/path?page=2&utm_source=newsletter&utm_medium=email",
 		},
 		{
+			name:           "fragment and tracking stripped together",
+			rawURL:         "https://example.com/path?page=2&utm_source=newsletter#section",
+			wantNormalized: "https://example.com/path?page=2",
+			wantOriginal:   "https://example.com/path?page=2&utm_source=newsletter#section",
+		},
+		{
+			name:           "duplicate tracking params removed",
+			rawURL:         "https://example.com/path?utm_source=newsletter&utm_source=partner&utm_medium=email",
+			wantNormalized: "https://example.com/path",
+			wantOriginal:   "https://example.com/path?utm_source=newsletter&utm_source=partner&utm_medium=email",
+		},
+		{
 			name:           "fragment only change",
 			rawURL:         "https://example.com/path#section",
 			wantNormalized: "https://example.com/path",
@@ -101,6 +113,11 @@ func TestExtractDomain(t *testing.T) {
 		{
 			name:   "www stripped",
 			rawURL: "https://www.github.com/foo",
+			want:   "github.com",
+		},
+		{
+			name:   "uppercase www stripped",
+			rawURL: "https://WWW.github.com/foo",
 			want:   "github.com",
 		},
 		{
