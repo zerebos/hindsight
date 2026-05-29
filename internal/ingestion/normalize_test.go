@@ -40,6 +40,41 @@ func TestTimestampConversions(t *testing.T) {
 	}
 }
 
+func TestTimestampRoundTripConversions(t *testing.T) {
+	t.Run("chromium approximate round-trip", func(t *testing.T) {
+		original := int64(13351223880000001)
+		roundTripped := UnixMsToChromiumTime(ChromiumTimeToUnixMs(original))
+
+		if roundTripped > original {
+			t.Fatalf("round-tripped value should not exceed original: got %d, want <= %d", roundTripped, original)
+		}
+		if original-roundTripped >= 1000 {
+			t.Fatalf("round-trip drift too large: got %d, want within 999 microseconds of %d", roundTripped, original)
+		}
+	})
+
+	t.Run("firefox exact round-trip", func(t *testing.T) {
+		original := int64(1706750280000000)
+		roundTripped := UnixMsToFirefoxTime(FirefoxTimeToUnixMs(original))
+
+		if roundTripped != original {
+			t.Fatalf("round-trip mismatch: got %d, want %d", roundTripped, original)
+		}
+	})
+
+	t.Run("safari approximate round-trip", func(t *testing.T) {
+		original := 725826480.789
+		roundTripped := UnixMsToSafariTime(SafariTimeToUnixMs(original))
+
+		if roundTripped > original {
+			t.Fatalf("round-tripped value should not exceed original: got %f, want <= %f", roundTripped, original)
+		}
+		if original-roundTripped >= 1 {
+			t.Fatalf("round-trip drift too large: got %f, want within 1 second of %f", roundTripped, original)
+		}
+	})
+}
+
 func TestNormalizeURL(t *testing.T) {
 	tests := []struct {
 		name           string

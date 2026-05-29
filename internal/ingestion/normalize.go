@@ -154,3 +154,24 @@ func ExtractDomain(rawURL string) string {
 
 	return strings.ToLower(host)
 }
+
+// UnixMsToChromiumTime converts unix milliseconds to a Chromium timestamp
+// (microseconds since Jan 1, 1601). Used to convert last_synced_at back to
+// the native format for the incremental sync WHERE clause.
+func UnixMsToChromiumTime(unixMs int64) int64 {
+	return (unixMs + chromiumEpochOffsetMs) * 1000
+}
+
+// UnixMsToFirefoxTime converts unix milliseconds to a Firefox timestamp
+// (microseconds since Jan 1, 1970). Used to convert last_synced_at back to
+// the native format for the incremental sync WHERE clause.
+func UnixMsToFirefoxTime(unixMs int64) int64 {
+	return unixMs * 1000
+}
+
+// UnixMsToSafariTime converts unix milliseconds to a Safari timestamp
+// (seconds since Jan 1, 2001, as float64). Used to convert last_synced_at
+// back to the native format for the incremental sync WHERE clause.
+func UnixMsToSafariTime(unixMs int64) float64 {
+	return float64(unixMs/1000) - safariEpochOffsetSec
+}
