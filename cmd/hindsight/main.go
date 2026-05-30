@@ -23,7 +23,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to resolve config dir: %v", err)
 	}
-
 	dataDir, err := config.DataDir()
 	if err != nil {
 		log.Fatalf("failed to resolve data dir: %v", err)
@@ -63,13 +62,11 @@ func main() {
 	for _, e := range errs {
 		fmt.Printf("  warning: %v\n", e)
 	}
-
 	if len(detected) == 0 {
 		fmt.Println("  no browsers found")
 		return
 	}
-
-	fmt.Printf("  found %d profile(s) — registering sources...\n", len(detected))
+	fmt.Printf("  found %d profile(s) - registering sources...\n", len(detected))
 	for _, d := range detected {
 		src, err := queries.UpsertSource(ctx, dbgen.UpsertSourceParams{
 			Browser:   d.Browser,
@@ -85,13 +82,12 @@ func main() {
 		fmt.Printf("  registered: [%d] %s\n", src.ID, src.Label.String)
 	}
 
-	// Run sync across all sources
+	// Sync
 	fmt.Println("\nsyncing history...")
 	syncer := ingestion.NewSyncer(database, cacheDir)
 	results := syncer.SyncAll(ctx)
 
-	totalNew := 0
-	totalSkipped := 0
+	totalNew, totalSkipped := 0, 0
 	for _, r := range results {
 		src, _ := queries.GetAllSources(ctx)
 		label := fmt.Sprintf("source %d", r.SourceID)
@@ -101,7 +97,6 @@ func main() {
 				break
 			}
 		}
-
 		if r.Error != nil {
 			fmt.Printf("  %-40s error: %v\n", label, r.Error)
 		} else {
@@ -110,14 +105,101 @@ func main() {
 		totalNew += r.NewVisits
 		totalSkipped += r.Skipped
 	}
+	fmt.Printf("\ntotal new: %d  skipped: %d\n", totalNew, totalSkipped)
 
-	fmt.Printf("\ntotal new visits: %d  skipped: %d\n", totalNew, totalSkipped)
+	// ----------------------------------------------------------------
+	// Dashboard query validation
+	// ----------------------------------------------------------------
+	fmt.Println("\n--- dashboard queries ---")
 
-	// Verify row counts
-	count, err := queries.CountVisits(ctx)
+	// All-time filter (0 = no bound)
+	allTime := dbgen.GetDashboardStatsParams{StartTime: 0, EndTime: 0}
+
+	// 1. Summary stats
+	stats, err := queries.GetDashboardStats(ctx, allTime)
 	if err != nil {
-		log.Printf("warning: count query failed: %v", err)
+		log.Printf("GetDashboardStats error: %v", err)
 	} else {
-		fmt.Printf("total visits in db: %d\n", count)
+		fmt.Printf("\n[summary stats]\n")
+		fmt.Printf("  total visits:   %d\n", stats.TotalVisits)
+		fmt.Printf("  unique domains: %d\n", stats.UniqueDomains)
+		fmt.Printf("  active days:    %d\n", stats.ActiveDays)
+	}
+
+	// 2. Top 10 domains
+	topDomains, err := queries.GetTopDomains(ctx, dbgen.GetTopDomainsParams{
+		StartTime: 0,
+		EndTime:   0,
+		Limit:     10,
+	})
+	if err != nil {
+		log.Printf("GetTopDomains error: %v", err)
+	} else {
+		fmt.Printf("\n[top 10 domains]\n")
+		for i, d := range topDomains {
+			fmt.Printf("  %2d. %-40s %d visits\n", i+1, d.Host, d.TotalVisits)
+		}
+	}
+
+	// 3. Visit time series (last 30 days)
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -30).UnixMilli()
+	series, err := queries.GetVisitTimeSeries(ctx, dbgen.GetVisitTimeSeriesParams{
+		StartTime: thirtyDaysAgo,
+		EndTime:   0,
+	})
+	if err != nil {
+		log.Printf("GetVisitTimeSeries error: %v", err)
+	} else {
+		fmt.Printf("\n[visit time series - last 30 days] (%d data points)\n", len(series))
+		for _, p := range series {
+			date := time.UnixMilli(p.Day).UTC().Format("2006-01-02")
+			fmt.Printf("  %s  %d\n", date, p.TotalVisits)
+		}
+	}
+
+	// 4. Activity heatmap
+	cells, err := db.FetchHeatmap(ctx, queries, dbgen.GetRawVisitsForHeatmapParams{
+		StartTime: 0,
+		EndTime:   0,
+	}, time.Local)
+	if err != nil {
+		log.Printf("FetchHeatmap error: %v", err)
+	} else {
+		days := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+		fmt.Printf("\n[activity heatmap - all time] (%d populated cells / 168 total)\n", len(cells))
+		// Print peak cell per day as a sanity check rather than all 168
+		type peak struct {
+			hour  int
+			total int64
+		}
+		peaks := make(map[int]peak)
+		for _, c := range cells {
+			if existing, ok := peaks[c.Day]; !ok || c.TotalVisits > existing.total {
+				peaks[c.Day] = peak{c.Hour, c.TotalVisits}
+			}
+		}
+		for day := 0; day <= 6; day++ {
+			if p, ok := peaks[day]; ok {
+				fmt.Printf("  %s  peak hour: %02d:00  (%d visits)\n", days[day], p.hour, p.total)
+			}
+		}
+	}
+
+	// 5. Browser breakdown
+	breakdown, err := queries.GetBrowserBreakdown(ctx, dbgen.GetBrowserBreakdownParams{
+		StartTime: 0,
+		EndTime:   0,
+	})
+	if err != nil {
+		log.Printf("GetBrowserBreakdown error: %v", err)
+	} else {
+		fmt.Printf("\n[browser breakdown]\n")
+		for _, b := range breakdown {
+			label := b.Label.String
+			if label == "" {
+				label = b.Browser
+			}
+			fmt.Printf("  %-40s %d visits\n", label, b.TotalVisits)
+		}
 	}
 }
