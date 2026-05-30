@@ -275,3 +275,61 @@ func (a *App) UpdateSettings(settings config.Settings) error {
 	a.settings = settings
 	return nil
 }
+
+// ----------------------------------------------------------------
+// DB Info
+// ----------------------------------------------------------------
+
+// DBInfo holds diagnostic information about the database.
+type DBInfo struct {
+	Path          string
+	SizeBytes     int64
+	TotalVisits   int64
+	TotalDomains  int64
+	TotalSources  int64
+	SchemaVersion string // most recently applied migration name
+}
+
+// GetDBInfo returns diagnostic information about the internal database.
+func (a *App) GetDBInfo(ctx context.Context) (DBInfo, error) {
+	info := DBInfo{Path: config.DBPath(a.dataDir)}
+
+	// File size
+	if fi, err := os.Stat(info.Path); err == nil {
+		info.SizeBytes = fi.Size()
+	}
+
+	// Row counts
+	visits, err := a.queries.CountVisits(ctx)
+	if err != nil {
+		return info, fmt.Errorf("count visits: %w", err)
+	}
+	info.TotalVisits = visits
+
+	domains, err := a.queries.GetAllDomains(ctx)
+	if err != nil {
+		return info, fmt.Errorf("count domains: %w", err)
+	}
+	info.TotalDomains = int64(len(domains))
+
+	sources, err := a.queries.GetAllSources(ctx)
+	if err != nil {
+		return info, fmt.Errorf("count sources: %w", err)
+	}
+	info.TotalSources = int64(len(sources))
+
+	// Latest applied migration
+	row := a.database.QueryRowContext(ctx,
+		`SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1`)
+	_ = row.Scan(&info.SchemaVersion) // ignore error — table may be empty on fresh DB
+
+	return info, nil
+}
+
+// RemoveSource deletes a source from the database by ID.
+// Note: existing visits from this source are preserved — they remain in the
+// visits table but are orphaned from their source. A future migration could
+// add cascade delete behavior if desired.
+func (a *App) RemoveSource(ctx context.Context, sourceID int64) error {
+	return a.queries.DeleteSource(ctx, sourceID)
+}

@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/zerebos/hindsight/internal/app"
 	"github.com/zerebos/hindsight/internal/ingestion"
@@ -29,6 +31,8 @@ func rootCmd() *cobra.Command {
 		syncCmd(),
 		statsCmd(),
 		searchCmd(),
+		sourcesCmd(),
+		infoCmd(),
 	)
 
 	return root
@@ -310,4 +314,191 @@ func searchCmd() *cobra.Command {
 	cmd.Flags().Int64VarP(&page, "page", "p", 0, "page number (0-indexed)")
 	cmd.Flags().Int64Var(&pageSize, "size", 20, "results per page")
 	return cmd
+}
+
+// ----------------------------------------------------------------
+// hindsight sources
+// ----------------------------------------------------------------
+
+func sourcesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sources",
+		Short: "Manage registered browser sources",
+	}
+
+	cmd.AddCommand(sourcesListCmd(), sourcesRemoveCmd())
+	return cmd
+}
+
+func sourcesListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all registered sources",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			a := newApp()
+			defer a.Close()
+
+			sources, err := a.GetSources(ctx)
+			if err != nil {
+				log.Fatalf("get sources: %v", err)
+			}
+
+			if len(sources) == 0 {
+				fmt.Println("no sources registered")
+				fmt.Println("run: hindsight discover --register")
+				return
+			}
+
+			fmt.Printf("%-4s  %-10s  %-30s  %-20s  %-20s  %s\n",
+				"ID", "Browser", "Label", "Last Synced", "Last Visit Seen", "Error")
+			fmt.Println(strings.Repeat("-", 110))
+
+			for _, s := range sources {
+				lastSynced := "never"
+				if s.LastSyncedAt.Valid {
+					lastSynced = time.UnixMilli(s.LastSyncedAt.Int64).Local().Format("2006-01-02 15:04")
+				}
+
+				lastSeen := "never"
+				if s.LastVisitSeen.Valid {
+					lastSeen = time.UnixMilli(s.LastVisitSeen.Int64).Local().Format("2006-01-02 15:04")
+				}
+
+				errStr := ""
+				if s.LastError.Valid {
+					// Truncate long errors for table display
+					e := s.LastError.String
+					if len(e) > 30 {
+						e = e[:27] + "..."
+					}
+					errStr = e
+				}
+
+				fmt.Printf("%-4d  %-10s  %-30s  %-20s  %-20s  %s\n",
+					s.ID, s.Browser, s.Label.String, lastSynced, lastSeen, errStr)
+			}
+		},
+	}
+}
+
+func sourcesRemoveCmd() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "remove <id>",
+		Short: "Remove a registered source by ID",
+		Long: `Remove a source from the database by its ID.
+
+Existing visits from this source are preserved in the database but will
+no longer be associated with an active source. Use 'sources list' to
+find the source ID.`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			a := newApp()
+			defer a.Close()
+
+			var id int64
+			if _, err := fmt.Sscan(args[0], &id); err != nil {
+				log.Fatalf("invalid source ID %q: %v", args[0], err)
+			}
+
+			// Show what we're about to remove
+			sources, err := a.GetSources(ctx)
+			if err != nil {
+				log.Fatalf("get sources: %v", err)
+			}
+
+			var target *struct{ label, path string }
+			for _, s := range sources {
+				if s.ID == id {
+					target = &struct{ label, path string }{s.Label.String, s.Path}
+					break
+				}
+			}
+
+			if target == nil {
+				log.Fatalf("source %d not found", id)
+			}
+
+			if !force {
+				fmt.Printf("remove source %d: %s\n", id, target.label)
+				fmt.Printf("path: %s\n", target.path)
+				fmt.Print("confirm? [y/N] ")
+				var confirm string
+				fmt.Scan(&confirm)
+				if confirm != "y" && confirm != "Y" {
+					fmt.Println("cancelled")
+					return
+				}
+			}
+
+			if err := a.RemoveSource(ctx, id); err != nil {
+				log.Fatalf("remove source: %v", err)
+			}
+			fmt.Printf("removed source %d (%s)\n", id, target.label)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "skip confirmation prompt")
+	return cmd
+}
+
+// ----------------------------------------------------------------
+// hindsight info
+// ----------------------------------------------------------------
+
+func infoCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "info",
+		Short: "Show database and configuration info",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			a := newApp()
+			defer a.Close()
+
+			configDir, dataDir := a.Dirs()
+			fmt.Printf("config dir:      %s\n", configDir)
+			fmt.Printf("data dir:        %s\n\n", dataDir)
+
+			info, err := a.GetDBInfo(ctx)
+			if err != nil {
+				log.Fatalf("db info: %v", err)
+			}
+
+			fmt.Printf("database\n")
+			fmt.Printf("  path:          %s\n", info.Path)
+			fmt.Printf("  size:          %s\n", formatBytes(info.SizeBytes))
+			fmt.Printf("  schema:        %s\n", info.SchemaVersion)
+			fmt.Printf("  visits:        %d\n", info.TotalVisits)
+			fmt.Printf("  domains:       %d\n", info.TotalDomains)
+			fmt.Printf("  sources:       %d\n\n", info.TotalSources)
+
+			cfg := a.GetSettings()
+			fmt.Printf("settings\n")
+			fmt.Printf("  sync interval: %d minutes\n", cfg.Sync.IntervalMinutes)
+			fmt.Printf("  sync on launch:%v\n", cfg.Sync.SyncOnLaunch)
+			fmt.Printf("  sync on wake:  %v\n", cfg.Sync.SyncOnWake)
+			fmt.Printf("  launch at login:%v\n", cfg.General.LaunchAtLogin)
+			fmt.Printf("  theme:         %s\n", cfg.General.Theme)
+		},
+	}
+}
+
+// ----------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------
+
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
