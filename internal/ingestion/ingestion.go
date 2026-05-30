@@ -310,6 +310,14 @@ func (s *Syncer) SyncAll(ctx context.Context) []SyncResult {
 	for _, src := range sources {
 		src := src // Capture loop variable
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					resultCh <- SyncResult{
+						SourceID: src.ID,
+						Error:    fmt.Errorf("panic during sync: %v", r),
+					}
+				}
+			}()
 			resultCh <- s.SyncSource(ctx, src)
 		}()
 	}
