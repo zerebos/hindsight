@@ -16,8 +16,8 @@ var migrationFiles embed.FS
 // It creates the schema_migrations tracking table on first run if it doesn't
 // exist, then applies any migration files that haven't been recorded yet.
 //
-// Migration files must be named NNN_description.sql where NNN is a
-// zero-padded integer (e.g. 001_initial_schema.sql). They are applied in
+// Migration files must be named NNNN_description.sql where NNNN is a
+// zero-padded integer (e.g. 0001_initial_schema.sql). They are applied in
 // ascending numeric order. Each migration runs in its own transaction —
 // a failure rolls back that migration and halts further execution, leaving
 // the database at the last successfully applied version.
@@ -96,7 +96,7 @@ func pendingMigrations(applied map[string]struct{}) ([]string, error) {
 		}
 	}
 
-	// Sort lexicographically — NNN_ prefix guarantees correct order
+	// Sort lexicographically — NNNN_ prefix guarantees correct order
 	sort.Strings(pending)
 	return pending, nil
 }
