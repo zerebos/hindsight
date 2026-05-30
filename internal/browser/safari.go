@@ -34,6 +34,7 @@ func discoverSafari() ([]DetectedSource, error) {
 			Profile: "default",
 			Path:    historyPath,
 			Label:   "Safari",
+			Family:  FamilySafari,
 		},
 	}, nil
 }

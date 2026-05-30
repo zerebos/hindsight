@@ -25,12 +25,12 @@ var knownFirefoxVariants = []firefoxVariant{
 		Label:   "Firefox",
 		Windows: `Mozilla\Firefox`,
 		Darwin:  "Firefox",
-		Linux:   "mozilla/firefox",
+		Linux:   "firefox",
 	},
 	{
 		Browser: "zen",
 		Label:   "Zen",
-		Windows: "zen",
+		Windows: `Zen Browser`,
 		Darwin:  "Zen Browser",
 		Linux:   "zen",
 	},
@@ -57,7 +57,6 @@ func discoverFirefox() ([]DetectedSource, error) {
 
 	for _, variant := range knownFirefoxVariants {
 		base := firefoxBasePath(variant.Windows, variant.Darwin, variant.Linux)
-		// fmt.Println("checking for Firefox variant at", base)
 		if base == "" || !exists(base) {
 			continue
 		}
@@ -94,6 +93,7 @@ func discoverFirefox() ([]DetectedSource, error) {
 				Profile: profileName,
 				Path:    placesPath,
 				Label:   profileLabel(variant.Label, profileName),
+				Family:  FamilyFirefox,
 			})
 		}
 	}
@@ -139,7 +139,6 @@ func parseProfilesIni(baseDir string) ([]firefoxProfile, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		// fmt.Printf("line: %q\n", line)
 
 		// New section
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {

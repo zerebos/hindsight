@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/zerebos/hindsight/internal/browser"
 	dbgen "github.com/zerebos/hindsight/internal/db/generated"
 )
 
@@ -145,44 +145,25 @@ func (s *Syncer) SyncSource(ctx context.Context, source dbgen.Source) SyncResult
 	return result
 }
 
-// readSource dispatches to the correct browser reader based on browser type.
+// readSource dispatches to the correct browser reader based on browser family.
 // Returns raw visits with timestamps in native browser format, except Safari
 // which converts to unix ms in its reader.
-func (s *Syncer) readSource(browser, copiedPath string, lastVisitSeenMs int64) ([]RawVisit, error) {
-	// Chromium-based browsers all share the same History schema
-	chromiumBrowsers := map[string]struct{}{
-		"chrome":  {},
-		"edge":    {},
-		"brave":   {},
-		"arc":     {},
-		"vivaldi": {},
-		"opera":   {},
-		"helium":  {},
-	}
-
-	// Firefox-based browsers all share the same places.sqlite schema
-	firefoxBrowsers := map[string]struct{}{
-		"firefox":   {},
-		"zen":       {},
-		"librewolf": {},
-		"floorp":    {},
-	}
-
-	switch {
-	case isIn(browser, chromiumBrowsers):
+func (s *Syncer) readSource(browserName, copiedPath string, lastVisitSeenMs int64) ([]RawVisit, error) {
+	switch browser.BrowserFamily(browserName) {
+	case browser.FamilyChromium:
 		since := UnixMsToChromiumTime(lastVisitSeenMs)
 		return readChromiumHistory(copiedPath, since)
 
-	case isIn(browser, firefoxBrowsers):
+	case browser.FamilyFirefox:
 		since := UnixMsToFirefoxTime(lastVisitSeenMs)
 		return readFirefoxHistory(copiedPath, since)
 
-	case browser == "safari":
+	case browser.FamilySafari:
 		since := UnixMsToSafariTime(lastVisitSeenMs)
 		return readSafariHistory(copiedPath, since)
 
 	default:
-		return nil, fmt.Errorf("unsupported browser %q", browser)
+		return nil, fmt.Errorf("unsupported browser %q (family unknown)", browserName)
 	}
 }
 
@@ -253,7 +234,7 @@ func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source d
 		}
 
 		// Insert visit — ON CONFLICT DO NOTHING handles dedup silently
-		result, err := qtx.InsertVisit(ctx, dbgen.InsertVisitParams{
+		insertResult, err := qtx.InsertVisit(ctx, dbgen.InsertVisitParams{
 			Url:        normalizedURL,
 			RawUrl:     rawURLNull,
 			Title:      titleNull,
@@ -263,8 +244,7 @@ func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source d
 			DurationMs: durationNull,
 			VisitCount: 1,
 			CreatedAt:  now,
-		});
-
+		})
 		if err != nil {
 			skipped++
 			log.Printf("debug: failed to insert visit for url %q: %v", normalizedURL, err)
@@ -273,7 +253,7 @@ func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source d
 
 		// Only count as new if the row was actually inserted,
 		// not silently skipped by ON CONFLICT DO NOTHING
-		affected, _ := result.RowsAffected()
+		affected, _ := insertResult.RowsAffected()
 		if affected > 0 {
 			newVisits++
 			if visitedAtMs > latestVisitedAt {
@@ -291,11 +271,11 @@ func (s *Syncer) writeVisits(ctx context.Context, rawVisits []RawVisit, source d
 
 // toUnixMs converts a raw browser timestamp to unix milliseconds.
 // Safari timestamps are already unix ms (converted in the reader).
-func toUnixMs(browser string, raw int64) int64 {
-	switch browser {
-	case "safari":
-		return raw // already converted in readSafariHistory
-	case "firefox", "zen", "librewolf", "floorp":
+func toUnixMs(browserName string, raw int64) int64 {
+	switch browser.BrowserFamily(browserName) {
+	case browser.FamilySafari:
+		return raw
+	case browser.FamilyFirefox:
 		return FirefoxTimeToUnixMs(raw)
 	default:
 		return ChromiumTimeToUnixMs(raw)
@@ -311,12 +291,6 @@ func (s *Syncer) recordError(ctx context.Context, sourceID int64, syncErr error)
 	}); err != nil {
 		log.Printf("warning: failed to record sync error for source %d: %v", sourceID, err)
 	}
-}
-
-// isIn checks whether a string key exists in a set.
-func isIn(key string, set map[string]struct{}) bool {
-	_, ok := set[strings.ToLower(key)]
-	return ok
 }
 
 // SyncAll runs SyncSource for every source in the database concurrently.

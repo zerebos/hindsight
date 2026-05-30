@@ -97,6 +97,7 @@ func discoverChromium() ([]DetectedSource, error) {
 				Profile: profile,
 				Path:    historyPath,
 				Label:   profileLabel(variant.Label, friendlyProfileName(profile)),
+				Family:  FamilyChromium,
 			})
 		}
 	}
