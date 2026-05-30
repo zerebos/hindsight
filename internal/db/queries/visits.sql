@@ -53,7 +53,7 @@ LIMIT @limit;
 -- Returns daily visit counts bucketed by day (unix ms at midnight UTC).
 SELECT
     (visited_at / 86400000) * 86400000 AS day,
-    SUM(visit_count) AS total_visits
+    CAST(SUM(visit_count) AS INTEGER) AS total_visits
 FROM visits
 WHERE
     (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND

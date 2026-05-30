@@ -157,6 +157,11 @@ func main() {
 		}
 	}
 
+	// Timezone sanity check
+	zone, offset := time.Now().Zone()
+	fmt.Printf("\n[timezone] %s (UTC%+.0f hours) via time.Local\n",
+		zone, float64(offset)/3600)
+
 	// 4. Activity heatmap
 	cells, err := db.FetchHeatmap(ctx, queries, dbgen.GetRawVisitsForHeatmapParams{
 		StartTime: 0,

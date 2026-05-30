@@ -206,7 +206,7 @@ func (q *Queries) GetTopDomains(ctx context.Context, arg GetTopDomainsParams) ([
 const getVisitTimeSeries = `-- name: GetVisitTimeSeries :many
 SELECT
     (visited_at / 86400000) * 86400000 AS day,
-    SUM(visit_count) AS total_visits
+    CAST(SUM(visit_count) AS INTEGER) AS total_visits
 FROM visits
 WHERE
     (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
@@ -222,7 +222,7 @@ type GetVisitTimeSeriesParams struct {
 
 type GetVisitTimeSeriesRow struct {
 	Day         int64
-	TotalVisits sql.NullFloat64
+	TotalVisits int64
 }
 
 // Returns daily visit counts bucketed by day (unix ms at midnight UTC).
