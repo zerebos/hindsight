@@ -39,7 +39,7 @@ WHERE source_id = @source_id;
 -- name: GetTopDomains :many
 SELECT
     d.host,
-    SUM(v.visit_count) AS total_visits
+    CAST(SUM(v.visit_count) AS INTEGER) AS total_visits
 FROM visits v
 JOIN domains d ON v.domain_id = d.id
 WHERE
@@ -111,9 +111,9 @@ WHERE
 -- active_days is computed in UTC - close enough for a summary stat and
 -- avoids timezone arithmetic in SQL entirely.
 SELECT
-    SUM(visit_count)          AS total_visits,
+    CAST(SUM(visit_count) AS INTEGER) AS total_visits,
     COUNT(DISTINCT domain_id) AS unique_domains,
-    COUNT(DISTINCT visited_at / 86400000) AS active_days
+    COUNT(DISTINCT (visited_at / 86400000)) AS active_days
 FROM visits
 WHERE
     (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND

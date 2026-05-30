@@ -66,9 +66,9 @@ func (q *Queries) CountVisitsBySource(ctx context.Context, sourceID int64) (int6
 
 const getDashboardStats = `-- name: GetDashboardStats :one
 SELECT
-    SUM(visit_count)          AS total_visits,
+    CAST(SUM(visit_count) AS INTEGER) AS total_visits,
     COUNT(DISTINCT domain_id) AS unique_domains,
-    COUNT(DISTINCT visited_at / 86400000) AS active_days
+    COUNT(DISTINCT (visited_at / 86400000)) AS active_days
 FROM visits
 WHERE
     (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
@@ -81,7 +81,7 @@ type GetDashboardStatsParams struct {
 }
 
 type GetDashboardStatsRow struct {
-	TotalVisits   sql.NullFloat64
+	TotalVisits   int64
 	UniqueDomains int64
 	ActiveDays    int64
 }
@@ -158,7 +158,7 @@ func (q *Queries) GetRawVisitsForHeatmap(ctx context.Context, arg GetRawVisitsFo
 const getTopDomains = `-- name: GetTopDomains :many
 SELECT
     d.host,
-    SUM(v.visit_count) AS total_visits
+    CAST(SUM(v.visit_count) AS INTEGER) AS total_visits
 FROM visits v
 JOIN domains d ON v.domain_id = d.id
 WHERE
@@ -177,7 +177,7 @@ type GetTopDomainsParams struct {
 
 type GetTopDomainsRow struct {
 	Host        string
-	TotalVisits sql.NullFloat64
+	TotalVisits int64
 }
 
 func (q *Queries) GetTopDomains(ctx context.Context, arg GetTopDomainsParams) ([]GetTopDomainsRow, error) {

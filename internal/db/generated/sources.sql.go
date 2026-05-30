@@ -63,7 +63,7 @@ SELECT
     s.id,
     s.browser,
     s.label,
-    SUM(v.visit_count) AS total_visits
+    CAST(SUM(v.visit_count) AS INTEGER) AS total_visits
 FROM sources s
 JOIN visits v ON v.source_id = s.id
 WHERE
@@ -82,7 +82,7 @@ type GetBrowserBreakdownRow struct {
 	ID          int64
 	Browser     string
 	Label       sql.NullString
-	TotalVisits sql.NullFloat64
+	TotalVisits int64
 }
 
 func (q *Queries) GetBrowserBreakdown(ctx context.Context, arg GetBrowserBreakdownParams) ([]GetBrowserBreakdownRow, error) {

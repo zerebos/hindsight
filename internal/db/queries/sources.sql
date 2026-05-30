@@ -38,7 +38,7 @@ SELECT
     s.id,
     s.browser,
     s.label,
-    SUM(v.visit_count) AS total_visits
+    CAST(SUM(v.visit_count) AS INTEGER) AS total_visits
 FROM sources s
 JOIN visits v ON v.source_id = s.id
 WHERE
