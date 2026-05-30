@@ -1,3 +1,6 @@
+-- NOTE: sqlc's SQLite parser does not handle non-ASCII characters in comments.
+-- Use plain ASCII only - avoid em dashes, smart quotes, etc.
+
 -- name: InsertVisit :execresult
 INSERT INTO visits (
     url,
@@ -89,3 +92,29 @@ WHERE
     (CAST(@domain AS TEXT) = '' OR d.host  = CAST(@domain AS TEXT)) AND
     (CAST(@start_time AS INTEGER) = 0 OR v.visited_at >= CAST(@start_time AS INTEGER)) AND
     (CAST(@end_time   AS INTEGER) = 0 OR v.visited_at <= CAST(@end_time   AS INTEGER));
+
+-- name: GetRawVisitsForHeatmap :many
+-- Returns raw visited_at timestamps and visit counts for heatmap bucketing.
+-- Timezone-aware day/hour extraction is done in Go using time.In(loc) so
+-- that sqlc does not need to handle named parameters in arithmetic expressions
+-- (a known parser limitation). This also makes timezone handling fully testable.
+SELECT
+    visited_at,
+    visit_count
+FROM visits
+WHERE
+    (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR visited_at <= CAST(@end_time   AS INTEGER));
+
+-- name: GetDashboardStats :one
+-- Returns a single-row summary for the dashboard stat strip.
+-- active_days is computed in UTC - close enough for a summary stat and
+-- avoids timezone arithmetic in SQL entirely.
+SELECT
+    SUM(visit_count)          AS total_visits,
+    COUNT(DISTINCT domain_id) AS unique_domains,
+    COUNT(DISTINCT visited_at / 86400000) AS active_days
+FROM visits
+WHERE
+    (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR visited_at <= CAST(@end_time   AS INTEGER));

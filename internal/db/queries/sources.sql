@@ -32,3 +32,17 @@ WHERE id = @id;
 
 -- name: DeleteSource :exec
 DELETE FROM sources WHERE id = @id;
+
+-- name: GetBrowserBreakdown :many
+SELECT
+    s.id,
+    s.browser,
+    s.label,
+    SUM(v.visit_count) AS total_visits
+FROM sources s
+JOIN visits v ON v.source_id = s.id
+WHERE
+    (CAST(@start_time AS INTEGER) = 0 OR v.visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR v.visited_at <= CAST(@end_time   AS INTEGER))
+GROUP BY s.id
+ORDER BY total_visits DESC;

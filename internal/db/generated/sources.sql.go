@@ -58,6 +58,61 @@ func (q *Queries) GetAllSources(ctx context.Context) ([]Source, error) {
 	return items, nil
 }
 
+const getBrowserBreakdown = `-- name: GetBrowserBreakdown :many
+SELECT
+    s.id,
+    s.browser,
+    s.label,
+    SUM(v.visit_count) AS total_visits
+FROM sources s
+JOIN visits v ON v.source_id = s.id
+WHERE
+    (CAST(?1 AS INTEGER) = 0 OR v.visited_at >= CAST(?1 AS INTEGER)) AND
+    (CAST(?2   AS INTEGER) = 0 OR v.visited_at <= CAST(?2   AS INTEGER))
+GROUP BY s.id
+ORDER BY total_visits DESC
+`
+
+type GetBrowserBreakdownParams struct {
+	StartTime int64
+	EndTime   int64
+}
+
+type GetBrowserBreakdownRow struct {
+	ID          int64
+	Browser     string
+	Label       sql.NullString
+	TotalVisits sql.NullFloat64
+}
+
+func (q *Queries) GetBrowserBreakdown(ctx context.Context, arg GetBrowserBreakdownParams) ([]GetBrowserBreakdownRow, error) {
+	rows, err := q.db.QueryContext(ctx, getBrowserBreakdown, arg.StartTime, arg.EndTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBrowserBreakdownRow
+	for rows.Next() {
+		var i GetBrowserBreakdownRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Browser,
+			&i.Label,
+			&i.TotalVisits,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSourceByPath = `-- name: GetSourceByPath :one
 SELECT id, browser, profile, path, label, last_synced_at, last_visit_seen, last_error, last_error_at, created_at FROM sources
 WHERE path = ?1

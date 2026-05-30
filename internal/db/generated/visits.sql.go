@@ -64,6 +64,38 @@ func (q *Queries) CountVisitsBySource(ctx context.Context, sourceID int64) (int6
 	return count, err
 }
 
+const getDashboardStats = `-- name: GetDashboardStats :one
+SELECT
+    SUM(visit_count)          AS total_visits,
+    COUNT(DISTINCT domain_id) AS unique_domains,
+    COUNT(DISTINCT visited_at / 86400000) AS active_days
+FROM visits
+WHERE
+    (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
+    (CAST(?2   AS INTEGER) = 0 OR visited_at <= CAST(?2   AS INTEGER))
+`
+
+type GetDashboardStatsParams struct {
+	StartTime int64
+	EndTime   int64
+}
+
+type GetDashboardStatsRow struct {
+	TotalVisits   sql.NullFloat64
+	UniqueDomains int64
+	ActiveDays    int64
+}
+
+// Returns a single-row summary for the dashboard stat strip.
+// active_days is computed in UTC - close enough for a summary stat and
+// avoids timezone arithmetic in SQL entirely.
+func (q *Queries) GetDashboardStats(ctx context.Context, arg GetDashboardStatsParams) (GetDashboardStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getDashboardStats, arg.StartTime, arg.EndTime)
+	var i GetDashboardStatsRow
+	err := row.Scan(&i.TotalVisits, &i.UniqueDomains, &i.ActiveDays)
+	return i, err
+}
+
 const getLatestVisitTime = `-- name: GetLatestVisitTime :one
 SELECT CAST(COALESCE(MAX(visited_at), 0) AS INTEGER) FROM visits
 WHERE source_id = ?1
@@ -74,6 +106,53 @@ func (q *Queries) GetLatestVisitTime(ctx context.Context, sourceID int64) (int64
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const getRawVisitsForHeatmap = `-- name: GetRawVisitsForHeatmap :many
+SELECT
+    visited_at,
+    visit_count
+FROM visits
+WHERE
+    (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
+    (CAST(?2   AS INTEGER) = 0 OR visited_at <= CAST(?2   AS INTEGER))
+`
+
+type GetRawVisitsForHeatmapParams struct {
+	StartTime int64
+	EndTime   int64
+}
+
+type GetRawVisitsForHeatmapRow struct {
+	VisitedAt  int64
+	VisitCount int64
+}
+
+// Returns raw visited_at timestamps and visit counts for heatmap bucketing.
+// Timezone-aware day/hour extraction is done in Go using time.In(loc) so
+// that sqlc does not need to handle named parameters in arithmetic expressions
+// (a known parser limitation). This also makes timezone handling fully testable.
+func (q *Queries) GetRawVisitsForHeatmap(ctx context.Context, arg GetRawVisitsForHeatmapParams) ([]GetRawVisitsForHeatmapRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRawVisitsForHeatmap, arg.StartTime, arg.EndTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRawVisitsForHeatmapRow
+	for rows.Next() {
+		var i GetRawVisitsForHeatmapRow
+		if err := rows.Scan(&i.VisitedAt, &i.VisitCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getTopDomains = `-- name: GetTopDomains :many
@@ -171,6 +250,7 @@ func (q *Queries) GetVisitTimeSeries(ctx context.Context, arg GetVisitTimeSeries
 }
 
 const insertVisit = `-- name: InsertVisit :execresult
+
 INSERT INTO visits (
     url,
     raw_url,
@@ -207,6 +287,8 @@ type InsertVisitParams struct {
 	CreatedAt  int64
 }
 
+// NOTE: sqlc's SQLite parser does not handle non-ASCII characters in comments.
+// Use plain ASCII only - avoid em dashes, smart quotes, etc.
 func (q *Queries) InsertVisit(ctx context.Context, arg InsertVisitParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, insertVisit,
 		arg.Url,

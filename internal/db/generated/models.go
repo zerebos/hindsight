@@ -22,6 +22,11 @@ type DomainTag struct {
 	CreatedAt  int64
 }
 
+type SchemaMigration struct {
+	Version   string
+	AppliedAt int64
+}
+
 type Source struct {
 	ID            int64
 	Browser       string
