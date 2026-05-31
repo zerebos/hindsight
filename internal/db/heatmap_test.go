@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -53,5 +54,55 @@ func TestBucketHeatmapNilLocationUsesTimeLocal(t *testing.T) {
 	}
 	if got[0].Day != int(time.Tuesday) || got[0].Hour != 9 || got[0].TotalVisits != 1 {
 		t.Fatalf("unexpected cell: %+v", got[0])
+	}
+}
+
+func TestFetchHeatmap(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("Open(): %v", err)
+	}
+	defer database.Close()
+
+	q := dbgen.New(database)
+	ctx := context.Background()
+	now := int64(1)
+
+	domain, err := q.UpsertDomain(ctx, dbgen.UpsertDomainParams{Host: "fetch-test.com", CreatedAt: now})
+	if err != nil {
+		t.Fatalf("UpsertDomain(): %v", err)
+	}
+
+	source, err := q.UpsertSource(ctx, dbgen.UpsertSourceParams{
+		Browser: "chrome", Profile: "Default", Path: t.TempDir() + "/History", CreatedAt: now,
+	})
+	if err != nil {
+		t.Fatalf("UpsertSource(): %v", err)
+	}
+
+	// 1706750280000 ms = 2024-02-01 01:18:00 UTC = Thursday (weekday=4), hour=1
+	_, err = q.InsertVisit(ctx, dbgen.InsertVisitParams{
+		Url: "https://fetch-test.com/page", DomainID: domain.ID, SourceID: source.ID,
+		VisitedAt: 1706750280000, VisitCount: 5, CreatedAt: now,
+	})
+	if err != nil {
+		t.Fatalf("InsertVisit(): %v", err)
+	}
+
+	cells, err := FetchHeatmap(ctx, q, dbgen.GetRawVisitsForHeatmapParams{}, time.UTC)
+	if err != nil {
+		t.Fatalf("FetchHeatmap() error = %v", err)
+	}
+	if len(cells) != 1 {
+		t.Fatalf("len(cells) = %d, want 1", len(cells))
+	}
+	if cells[0].Day != int(time.Thursday) {
+		t.Fatalf("Day = %d, want %d (Thursday)", cells[0].Day, int(time.Thursday))
+	}
+	if cells[0].Hour != 1 {
+		t.Fatalf("Hour = %d, want 1", cells[0].Hour)
+	}
+	if cells[0].TotalVisits != 5 {
+		t.Fatalf("TotalVisits = %d, want 5", cells[0].TotalVisits)
 	}
 }

@@ -122,3 +122,47 @@ func TestXdgDataBaseLinuxBehavior(t *testing.T) {
 		}
 	})
 }
+
+func TestConfigDirCreatesDirectory(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("linux-specific XDG behavior")
+	}
+
+	base := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", base)
+
+	dir, err := ConfigDir()
+	if err != nil {
+		t.Fatalf("ConfigDir() error = %v", err)
+	}
+
+	want := filepath.Join(base, "hindsight")
+	if dir != want {
+		t.Fatalf("ConfigDir() = %q, want %q", dir, want)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("ConfigDir() should have created directory: %v", err)
+	}
+}
+
+func TestDataDirCreatesDirectory(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("linux-specific XDG behavior")
+	}
+
+	base := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", base)
+
+	dir, err := DataDir()
+	if err != nil {
+		t.Fatalf("DataDir() error = %v", err)
+	}
+
+	want := filepath.Join(base, "hindsight")
+	if dir != want {
+		t.Fatalf("DataDir() = %q, want %q", dir, want)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("DataDir() should have created directory: %v", err)
+	}
+}
