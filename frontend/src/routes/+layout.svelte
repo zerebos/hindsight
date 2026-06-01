@@ -16,6 +16,7 @@ onMount(async () => {
     // Load registered sources on startup
     try {
         appState.sources = await GetSources()
+        console.log('Loaded sources:', appState.sources)
     } catch (err) {
         appState.globalError = String(err)
     }
