@@ -5,10 +5,16 @@
 // @ts-ignore: Unused imports
 import type { Events } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as ingestion$0 from "../../../../zerebos/hindsight/internal/ingestion/models.js";
+
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
-            "time": string;
+            "sync:complete": ingestion$0.SyncResult;
+            "sync:error": string;
+            "sync:started": number;
         }
     }
 }
