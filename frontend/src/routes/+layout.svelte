@@ -2,14 +2,15 @@
 import { onMount } from 'svelte'
 import { page } from '$app/state'
 import { Events } from '@wailsio/runtime'
-import { GetSources } from '$hindsight/sourceservice'
+import { GetSources } from '$hindsight/SourceService'
 import { appState, markSyncComplete, markSyncError, invalidateDashboard } from '$lib/stores'
 import type { SyncResult } from '$hindsight/internal/ingestion/models'
+import '../app.css'
 
 let { children } = $props()
 
 // Current route for nav highlighting
-const currentPath = $derived(page.url.pathname)
+// page from $app/state is already reactive in SvelteKit + Svelte 5
 
 onMount(async () => {
     // Load registered sources on startup
@@ -52,7 +53,7 @@ const navItems = [
                     <a
                         href={item.path}
                         class="nav-item"
-                        class:active={currentPath === item.path}
+                        class:active={page.url.pathname === item.path}
                     >
                         <span class="nav-icon">{item.icon}</span>
                         <span class="nav-label">{item.label}</span>
