@@ -39,6 +39,7 @@ func setupTray(wailsApp *application.App, window *application.WebviewWindow, hin
 	menu.AddSeparator()
 
 	menu.Add("Sync Now").OnClick(func(ctx *application.Context) {
+		wailsApp.Event.Emit("sync:started", int64(0)) // 0 = all sources
 		go func() {
 			results := hindsight.SyncAll(context.Background())
 			for _, r := range results {

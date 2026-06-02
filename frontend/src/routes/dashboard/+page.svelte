@@ -14,7 +14,7 @@ import TimeRangePicker from '$lib/components/TimeRangePicker.svelte'
 import StatCard from '$lib/components/StatCard.svelte'
 import Heatmap from '$lib/components/Heatmap.svelte'
 import TimeSeries from '$lib/components/TimeSeries.svelte'
-import type { DashboardFilter } from '$app/models'
+import type { DashboardFilter } from '$happ/models'
 
 async function loadDashboard(filter: DashboardFilter) {
     dashboardState.loading = true

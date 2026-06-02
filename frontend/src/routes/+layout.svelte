@@ -2,12 +2,15 @@
 import { onMount } from 'svelte'
 import { page } from '$app/state'
 import { Events } from '@wailsio/runtime'
-import { GetSources } from '$hindsight/SourceService'
-import { appState, markSyncComplete, markSyncError, invalidateDashboard } from '$lib/stores'
-import type { SyncResult } from '$hindsight/internal/ingestion/models'
+import { GetSources } from '$hindsight/sourceservice'
+import { appState, markSyncStarted, markSyncComplete, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
+import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
+import type { SyncResult } from '$ingestion/models'
 import '../app.css'
+import { formatRelative } from '$lib/utils'
 
 let { children } = $props()
+let syncSettleTimer: ReturnType<typeof setTimeout>
 
 // Current route for nav highlighting
 // page from $app/state is already reactive in SvelteKit + Svelte 5
@@ -16,20 +19,37 @@ onMount(async () => {
     // Load registered sources on startup
     try {
         appState.sources = await GetSources()
-        console.log('Loaded sources:', appState.sources)
     } catch (err) {
         appState.globalError = String(err)
     }
 
     // Wire up sync events from Go backend.
     // Wails wraps event data in { data: T } — access via .data
+    Events.On('sync:started', () => {
+        markSyncStarted()
+    })
+
+    // Track pending completions so we know when all sources are done
+    let pendingResults: SyncResult[] = []
+
     Events.On('sync:complete', (event: { data: SyncResult }) => {
+        pendingResults.push(event.data)
         markSyncComplete(event.data)
         invalidateDashboard()
+        // Refresh sources list after sync in case labels changed
+        GetSources().then(sources => { appState.sources = sources }).catch(() => {})
+        // Mark all done — in practice SyncAll returns one result per source
+        // and we don't know the total upfront, so we end syncing after
+        // a short settling delay once results stop arriving
+        clearTimeout(syncSettleTimer)
+        syncSettleTimer = setTimeout(() => {
+            markAllSyncsComplete()
+            pendingResults = []
+        }, 500)
     })
 
     Events.On('sync:error', (event: { data: string }) => {
-        markSyncError(0, event.data)
+        markSyncError(event.data)
     })
 
     appState.initialized = true
@@ -64,8 +84,10 @@ const navItems = [
         </ul>
 
         <div class="sidebar-footer">
-            {#if appState.syncingSourceIds.size > 0}
+            {#if appState.syncing}
                 <span class="sync-indicator syncing">Syncing...</span>
+            {:else if appState.lastSyncTime}
+                <span class="sync-indicator idle">Synced {formatRelative(appState.lastSyncTime)}</span>
             {:else if appState.initialized}
                 <span class="sync-indicator idle">Ready</span>
             {/if}

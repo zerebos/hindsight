@@ -46,7 +46,6 @@ func main() {
 			application.NewService(dashSvc),
 			application.NewService(searchSvc),
 			application.NewService(settingsSvc),
-			application.NewService(&GreetService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -90,6 +89,7 @@ func main() {
 	// Run sync on launch if configured.
 	cfg := hindsight.GetSettings()
 	if cfg.Sync.SyncOnLaunch {
+		wailsApp.Event.Emit("sync:started", int64(0)) // 0 = all sources
 		go func() {
 			results := hindsight.SyncAll(context.Background())
 			for _, r := range results {

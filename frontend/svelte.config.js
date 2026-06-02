@@ -19,7 +19,7 @@ const config = {
 			'$bindings': './bindings',
 			'$wails': './bindings/github.com/wailsapp/wails/v3/internal',
 			'$hindsight': './bindings/github.com/zerebos/hindsight',
-			'$app': './bindings/github.com/zerebos/hindsight/internal/app',
+			'$happ': './bindings/github.com/zerebos/hindsight/internal/app',
 			'$db': './bindings/github.com/zerebos/hindsight/internal/db',
 			'$dbgen': './bindings/github.com/zerebos/hindsight/internal/db/generated',
 			'$browser': './bindings/github.com/zerebos/hindsight/internal/browser',

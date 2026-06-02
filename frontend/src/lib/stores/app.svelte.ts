@@ -6,23 +6,27 @@ export const appState = $state({
     initialized: false,
     globalError: null as string | null,
     sources: [] as Source[],
-    syncingSourceIds: new SvelteSet<number>(),
+    syncing: false,   // true while any sync is in progress
     lastSyncResults: new SvelteMap<number, SyncResult>(),
+    lastSyncTime: null as number | null, // unix ms of last completed sync
 });
 
-export const isSyncing = () => appState.syncingSourceIds.size > 0;
-
-export function markSyncStarted(sourceId: number) {
-    appState.syncingSourceIds.add(sourceId);
+export function markSyncStarted() {
+    appState.syncing = true;
 }
 
 export function markSyncComplete(result: SyncResult) {
     const id = Number(result.SourceID);
-    appState.syncingSourceIds.delete(id);
     appState.lastSyncResults.set(id, result);
+    // Syncing ends when the last result arrives — checked by caller
 }
 
-export function markSyncError(sourceId: number, error: string) {
-    appState.syncingSourceIds.delete(sourceId);
+export function markAllSyncsComplete() {
+    appState.syncing = false;
+    appState.lastSyncTime = Date.now();
+}
+
+export function markSyncError(error: string) {
+    appState.syncing = false;
     appState.globalError = error;
 }

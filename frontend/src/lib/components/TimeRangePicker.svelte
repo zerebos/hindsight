@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { DashboardFilter } from '$app/models'
+import type { DashboardFilter } from '$happ/models'
 
 interface Props {
     filter: DashboardFilter
