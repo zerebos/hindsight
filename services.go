@@ -6,6 +6,7 @@ import (
 
 	"github.com/zerebos/hindsight/internal/app"
 	"github.com/zerebos/hindsight/internal/browser"
+	"github.com/zerebos/hindsight/internal/config"
 	idb "github.com/zerebos/hindsight/internal/db"
 	dbgen "github.com/zerebos/hindsight/internal/db/generated"
 	"github.com/zerebos/hindsight/internal/ingestion"
@@ -136,14 +137,10 @@ func NewSettingsService(a *app.App) *SettingsService {
 	return &SettingsService{app: a}
 }
 
-func (s *SettingsService) GetSettings() interface{} {
+func (s *SettingsService) GetSettings() config.Settings {
 	return s.app.GetSettings()
 }
 
-func (s *SettingsService) UpdateSettings(settings interface{}) error {
-	// NOTE: Wails deserializes JSON into interface{} for complex types that
-	// don't have a direct JS equivalent. If the Settings struct causes binding
-	// issues, consider flattening into individual fields or using a dedicated
-	// SettingsDTO type here. Verify with your version of the binding generator.
-	return nil // TODO: implement once Settings binding is confirmed
+func (s *SettingsService) UpdateSettings(settings config.Settings) error {
+	return s.app.UpdateSettings(settings)
 }

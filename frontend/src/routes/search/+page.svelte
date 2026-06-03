@@ -220,7 +220,7 @@ const hasFilters = $derived(
                                 <th>Page</th>
                                 <th>Domain</th>
                                 <th>Visited</th>
-                                <th style="text-align: right;">Visits</th>
+                                <!-- <th style="text-align: right;">Visits</th> -->
                                 <th>Source</th>
                             </tr>
                         </thead>
@@ -252,9 +252,9 @@ const hasFilters = $derived(
                                     <td class="time-cell">
                                         {formatDate(visit.VisitedAt, 'datetime')}
                                     </td>
-                                    <td class="count-cell">
+                                    <!-- <td class="count-cell">
                                         {visit.VisitCount > 1 ? visit.VisitCount : ''}
-                                    </td>
+                                    </td> -->
                                     <td class="source-cell text-muted">
                                         {sourceLabel(visit.SourceID)}
                                     </td>

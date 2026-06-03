@@ -10,10 +10,19 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
-export function GetSettings(): $CancellablePromise<any> {
-    return $Call.ByID(3034808949);
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as config$0 from "./internal/config/models.js";
+
+export function GetSettings(): $CancellablePromise<config$0.Settings> {
+    return $Call.ByID(3034808949).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
-export function UpdateSettings(settings: any): $CancellablePromise<void> {
+export function UpdateSettings(settings: config$0.Settings): $CancellablePromise<void> {
     return $Call.ByID(2846770304, settings);
 }
+
+// Private type creation functions
+const $$createType0 = config$0.Settings.createFrom;
