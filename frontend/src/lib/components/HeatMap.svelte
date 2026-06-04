@@ -113,6 +113,7 @@ function hideTooltip() {
                         opacity={visits > 0 ? cellOpacity(visits) : 1}
                         onmouseenter={(e) => showTooltip(e, day, hour, visits)}
                         onmouseleave={hideTooltip}
+                        tabindex="-1"
                         role="gridcell"
                         aria-label="{DAY_LABELS[day]} {formatHour(hour)}: {visits} visits"
                     />

@@ -496,14 +496,6 @@ const hasFilters = $derived(
         font-variant-numeric: tabular-nums;
     }
 
-    .count-cell {
-        text-align: right;
-        width: 5%;
-        font-size: var(--font-size-xs);
-        color: var(--text-faint);
-        font-variant-numeric: tabular-nums;
-    }
-
     .source-cell {
         width: 15%;
         font-size: var(--font-size-xs);

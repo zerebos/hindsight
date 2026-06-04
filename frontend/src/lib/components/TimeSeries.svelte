@@ -65,6 +65,7 @@ function hideTooltip() {
                 {@const by = chartHeight - bh}
 
                 <rect
+                    role="presentation"
                     x={bx}
                     y={by}
                     width="4"

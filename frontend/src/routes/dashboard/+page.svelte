@@ -6,13 +6,13 @@ import {
     GetVisitTimeSeries,
     GetActivityHeatmap,
     GetBrowserBreakdown,
-} from '$hindsight/DashboardService'
+} from '$hindsight/dashboardservice'
 import { dashboardState } from '$lib/stores/dashboard.svelte'
 import { appState } from '$lib/stores/app.svelte'
 import { nullStr } from '$lib/utils'
 import TimeRangePicker from '$lib/components/TimeRangePicker.svelte'
 import StatCard from '$lib/components/StatCard.svelte'
-import Heatmap from '$lib/components/Heatmap.svelte'
+import Heatmap from '$lib/components/HeatMap.svelte'
 import TimeSeries from '$lib/components/TimeSeries.svelte'
 import type { DashboardFilter } from '$happ/models'
 

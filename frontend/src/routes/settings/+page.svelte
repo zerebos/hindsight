@@ -1,13 +1,13 @@
 <script lang="ts">
 import { onMount } from 'svelte'
-import { GetSettings, UpdateSettings } from '$hindsight/SettingsService'
+import { GetSettings, UpdateSettings } from '$hindsight/settingsservice'
 import {
     GetSources,
     RemoveSource,
     DiscoverAndRegister,
     SyncAll,
     SyncSource,
-} from '$hindsight/SourceService'
+} from '$hindsight/sourceservice'
 import { Settings } from '$hindsight/internal/config/models'
 import { appState, markSyncStarted, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
 import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
