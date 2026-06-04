@@ -38,6 +38,12 @@ export function GetSources(): $CancellablePromise<db$0.Source[]> {
     });
 }
 
+export function RegisterSource(detected: browser$0.DetectedSource): $CancellablePromise<db$0.Source> {
+    return $Call.ByID(2535320960, detected).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function RemoveSource(sourceID: number): $CancellablePromise<void> {
     return $Call.ByID(131466529, sourceID);
 }

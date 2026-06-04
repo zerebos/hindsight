@@ -1,11 +1,12 @@
 <script lang="ts">
 import { onMount } from 'svelte'
 import { page } from '$app/state'
+import { goto } from '$app/navigation'
 import { Events } from '@wailsio/runtime'
-import { GetSources } from '$hindsight/sourceservice'
+import { GetSources } from '$hindsight/SourceService'
 import { appState, markSyncStarted, markSyncComplete, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
 import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
-import type { SyncResult } from '$ingestion/models'
+import type { SyncResult } from '$hindsight/internal/ingestion/models'
 import '../app.css'
 import { formatRelative } from '$lib/utils'
 
@@ -55,6 +56,18 @@ onMount(async () => {
     appState.initialized = true
 })
 
+// Redirect to onboarding if no sources registered,
+// or away from onboarding if sources already exist
+$effect(() => {
+    if (!appState.initialized) return
+    const onOnboarding = page.url.pathname === '/onboarding'
+    if (appState.sources.length === 0 && !onOnboarding) {
+        goto('/onboarding')
+    } else if (appState.sources.length > 0 && onOnboarding) {
+        goto('/dashboard')
+    }
+})
+
 const navItems = [
     { path: '/',         label: 'Dashboard', icon: '◈' },
     { path: '/search',   label: 'Search',    icon: '⌕' },
@@ -63,6 +76,7 @@ const navItems = [
 </script>
 
 <div class="shell">
+    {#if page.url.pathname !== '/onboarding'}
     <nav class="sidebar">
         <div class="sidebar-header">
             <span class="app-name">Hindsight</span>
@@ -93,6 +107,7 @@ const navItems = [
             {/if}
         </div>
     </nav>
+    {/if}
 
     <main class="content">
         {#if appState.globalError}

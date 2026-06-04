@@ -55,6 +55,10 @@ func (s *SourceService) DiscoverAndRegister() ([]dbgen.Source, error) {
 	return sources, nil
 }
 
+func (s *SourceService) RegisterSource(detected browser.DetectedSource) (dbgen.Source, error) {
+	return s.app.RegisterSource(s.ctx, detected)
+}
+
 func (s *SourceService) GetSources() ([]dbgen.Source, error) {
 	return s.app.GetSources(s.ctx)
 }
