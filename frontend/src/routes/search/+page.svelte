@@ -2,7 +2,7 @@
 import { SearchVisits } from '$hindsight/searchservice'
 import { searchState, clearSearch } from '$lib/stores/search.svelte'
 import { appState } from '$lib/stores/app.svelte'
-import { nullStr, formatDate, truncateUrl, formatNumber } from '$lib/utils'
+import { nullStr, formatDate, truncateUrl, formatNumber, formatDuration } from '$lib/utils'
 import TimeRangePicker from '$lib/components/TimeRangePicker.svelte'
 import Pagination from '$lib/components/Pagination.svelte'
 import type { DashboardFilter } from '$hindsight/internal/app/models'
@@ -108,6 +108,8 @@ const hasFilters = $derived(
     searchState.params.Domain !== '' ||
     searchState.params.StartTime !== 0
 )
+
+runSearch() // Initial search on page load
 </script>
 
 <div class="search-page">
@@ -233,7 +235,8 @@ const hasFilters = $derived(
                                 <th>Page</th>
                                 <th>Domain</th>
                                 <th>Visited</th>
-                                <!-- <th style="text-align: right;">Visits</th> -->
+                                <!-- TODO: only chromium supports this, should we handle this UI-side? -->
+                                <!-- <th>Duration</th> -->
                                 <th>Source</th>
                             </tr>
                         </thead>
@@ -265,8 +268,12 @@ const hasFilters = $derived(
                                     <td class="time-cell">
                                         {formatDate(visit.VisitedAt, 'datetime')}
                                     </td>
-                                    <!-- <td class="count-cell">
-                                        {visit.VisitCount > 1 ? visit.VisitCount : ''}
+                                    <!-- <td class="duration-cell">
+                                    {visit.DurationMs.Int64}
+                                        {#if visit.DurationMs.Valid}
+                                            {formatDuration(visit.DurationMs.Int64, {maxUnits: 3, short: true})}
+                                        {/if}
+
                                     </td> -->
                                     <td class="source-cell text-muted">
                                         {sourceLabel(visit.SourceID)}

@@ -318,6 +318,7 @@ SELECT
     v.visited_at,
     v.visit_count,
     v.source_id,
+    v.duration_ms,
     d.host AS domain
 FROM visits v
 JOIN domains d ON v.domain_id = d.id
@@ -348,6 +349,7 @@ type SearchVisitsRow struct {
 	VisitedAt  int64
 	VisitCount int64
 	SourceID   int64
+	DurationMs sql.NullInt64
 	Domain     string
 }
 
@@ -374,6 +376,7 @@ func (q *Queries) SearchVisits(ctx context.Context, arg SearchVisitsParams) ([]S
 			&i.VisitedAt,
 			&i.VisitCount,
 			&i.SourceID,
+			&i.DurationMs,
 			&i.Domain,
 		); err != nil {
 			return nil, err

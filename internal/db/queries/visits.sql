@@ -69,6 +69,7 @@ SELECT
     v.visited_at,
     v.visit_count,
     v.source_id,
+    v.duration_ms,
     d.host AS domain
 FROM visits v
 JOIN domains d ON v.domain_id = d.id

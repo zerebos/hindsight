@@ -3,7 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Create as $Create} from "@wailsio/runtime";
+import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -136,6 +136,7 @@ export class SearchVisitsRow {
     "VisitedAt": number;
     "VisitCount": number;
     "SourceID": number;
+    "DurationMs": sql$0.NullInt64;
     "Domain": string;
 
     /** Creates a new SearchVisitsRow instance. */
@@ -158,6 +159,9 @@ export class SearchVisitsRow {
         if (!("SourceID" in $$source)) {
             this["SourceID"] = 0;
         }
+        if (!("DurationMs" in $$source)) {
+            this["DurationMs"] = (new sql$0.NullInt64());
+        }
         if (!("Domain" in $$source)) {
             this["Domain"] = "";
         }
@@ -170,9 +174,13 @@ export class SearchVisitsRow {
      */
     static createFrom($$source: any = {}): SearchVisitsRow {
         const $$createField2_0 = $$createType0;
+        const $$createField6_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("Title" in $$parsedSource) {
             $$parsedSource["Title"] = $$createField2_0($$parsedSource["Title"]);
+        }
+        if ("DurationMs" in $$parsedSource) {
+            $$parsedSource["DurationMs"] = $$createField6_0($$parsedSource["DurationMs"]);
         }
         return new SearchVisitsRow($$parsedSource as Partial<SearchVisitsRow>);
     }
