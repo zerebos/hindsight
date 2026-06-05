@@ -60,9 +60,11 @@ const end        = $derived(Math.min((page + 1) * pageSize, total))
         display: flex;
         align-items: center;
         justify-content: space-between;
+        height: 45px;
         padding: var(--space-2) var(--space-3);
         border-top: 1px solid var(--border);
         flex-shrink: 0;
+        background: var(--surface);
     }
 
     .pagination-info {

@@ -156,11 +156,12 @@ const navItems = [
     }
 
     .sidebar-header {
-        padding: 1.25rem 1rem;
+        height: 60px;
+        padding: 0.75rem;
         border-bottom: 1px solid var(--border);
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.375rem;
     }
 
     .app-icon {
@@ -222,6 +223,7 @@ const navItems = [
         padding: 0.75rem 1rem;
         border-top: 1px solid var(--border);
         font-size: 0.75rem;
+        height: 45px;
     }
 
     /* .sync-indicator.syncing { color: var(--accent); }
