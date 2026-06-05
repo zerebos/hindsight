@@ -344,6 +344,9 @@ onMount(() => {
                 <h2 class="section-title">General</h2>
                 <p class="section-desc">Appearance and startup behavior.</p>
             </div>
+            {#if savedIndicator}
+                <span class="saved-indicator">Saved</span>
+            {/if}
         </div>
 
         {#if settings}
