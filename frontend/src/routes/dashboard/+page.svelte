@@ -9,7 +9,7 @@ import {
 } from '$hindsight/dashboardservice'
 import { dashboardState } from '$lib/stores/dashboard.svelte'
 import { appState } from '$lib/stores/app.svelte'
-import { nullStr } from '$lib/utils'
+import { formatDuration, nullStr } from '$lib/utils'
 import TimeRangePicker from '$lib/components/TimeRangePicker.svelte'
 import StatCard from '$lib/components/StatCard.svelte'
 import Heatmap from '$lib/components/HeatMap.svelte'
@@ -90,6 +90,11 @@ const totalBreakdownVisits = $derived(
         <StatCard
             label="Active Days"
             value={dashboardState.stats?.ActiveDays ?? null}
+            loading={dashboardState.loading && !dashboardState.stats}
+        />
+        <StatCard
+            label="Total Duration"
+            value={formatDuration(dashboardState.stats?.TotalDurationMs ?? 0, {maxUnits: 3, short: true})}
             loading={dashboardState.loading && !dashboardState.stats}
         />
         <StatCard

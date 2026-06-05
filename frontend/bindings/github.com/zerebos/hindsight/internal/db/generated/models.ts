@@ -3,7 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Create as $Create } from "@wailsio/runtime";
+import {Create as $Create} from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -50,6 +50,7 @@ export class GetDashboardStatsRow {
     "TotalVisits": number;
     "UniqueDomains": number;
     "ActiveDays": number;
+    "TotalDurationMs": number;
 
     /** Creates a new GetDashboardStatsRow instance. */
     constructor($$source: Partial<GetDashboardStatsRow> = {}) {
@@ -61,6 +62,9 @@ export class GetDashboardStatsRow {
         }
         if (!("ActiveDays" in $$source)) {
             this["ActiveDays"] = 0;
+        }
+        if (!("TotalDurationMs" in $$source)) {
+            this["TotalDurationMs"] = 0;
         }
 
         Object.assign(this, $$source);

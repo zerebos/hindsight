@@ -54,6 +54,86 @@ export function formatRelative(ms: number): string {
     return new Date(ms).toLocaleDateString();
 }
 
+type FormatDurationOptions = {
+    /**
+     * Use short unit labels (e.g., "d" instead of "days")
+     * @default false
+     */
+    short?: boolean;
+    /**
+     * Maximum number of time units to display (e.g., 3 => "1 year, 2 months, 3 days")
+     * @default 3
+     */
+    maxUnits?: number;
+};
+
+/**
+ * Converts a duration in milliseconds to a human-readable string.
+ *
+ * @param ms - Duration in milliseconds (negative values are supported)
+ * @param options - Formatting options
+ * @returns Formatted duration string
+ *
+ * @example
+ * formatDuration(93600000) // "1 day, 2 hours"
+ * formatDuration(93600000, { short: true }) // "1d 2h"
+ * formatDuration(7776000000, { maxUnits: 2 }) // "3 months"
+ * formatDuration(-5000) // "minus 5 seconds"
+ * formatDuration(0) // "0 seconds"
+ */
+export function formatDuration(
+    ms: number,
+    options: FormatDurationOptions = {}
+): string {
+    const {short = false, maxUnits = 3} = options;
+
+    if (ms === 0) {
+        return short ? "0s" : "0 seconds";
+    }
+
+    // Define units from largest to smallest
+    const units = [
+        {long: "year", short: "y", ms: 365 * 24 * 60 * 60 * 1000},
+        {long: "month", short: "mo", ms: 30 * 24 * 60 * 60 * 1000},
+        // {long: "week", short: "w", ms: 7 * 24 * 60 * 60 * 1000},
+        {long: "day", short: "d", ms: 24 * 60 * 60 * 1000},
+        {long: "hour", short: "h", ms: 60 * 60 * 1000},
+        {long: "minute", short: "m", ms: 60 * 1000},
+        {long: "second", short: "s", ms: 1000},
+        {long: "millisecond", short: "ms", ms: 1},
+    ];
+
+    let remainder = Math.abs(ms);
+    const parts: string[] = [];
+    let unitsUsed = 0;
+
+    for (const unit of units) {
+        if (remainder >= unit.ms) {
+            const count = Math.floor(remainder / unit.ms);
+            remainder -= count * unit.ms;
+
+            if (short) {
+                parts.push(`${count}${unit.short}`);
+            } else {
+                const unitName = unit.long + (count !== 1 ? "s" : "");
+                parts.push(`${count} ${unitName}`);
+            }
+
+            unitsUsed++;
+            if (unitsUsed >= maxUnits || remainder === 0) {
+                break;
+            }
+        }
+    }
+
+    let result = short ? parts.join(" ") : parts.join(", ");
+    if (ms < 0) {
+        result = `minus ${result}`;
+    }
+
+    return result;
+}
+
 /**
  * Format a unix millisecond timestamp as a short date string.
  * e.g. "2026-05-29"

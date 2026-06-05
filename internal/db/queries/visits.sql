@@ -113,7 +113,8 @@ WHERE
 SELECT
     CAST(SUM(visit_count) AS INTEGER) AS total_visits,
     COUNT(DISTINCT domain_id) AS unique_domains,
-    COUNT(DISTINCT (visited_at / 86400000)) AS active_days
+    COUNT(DISTINCT (visited_at / 86400000)) AS active_days,
+    CAST(SUM(duration_ms) AS INTEGER) AS total_duration_ms
 FROM visits
 WHERE
     (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND

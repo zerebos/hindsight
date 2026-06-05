@@ -68,7 +68,8 @@ const getDashboardStats = `-- name: GetDashboardStats :one
 SELECT
     CAST(SUM(visit_count) AS INTEGER) AS total_visits,
     COUNT(DISTINCT domain_id) AS unique_domains,
-    COUNT(DISTINCT (visited_at / 86400000)) AS active_days
+    COUNT(DISTINCT (visited_at / 86400000)) AS active_days,
+    CAST(SUM(duration_ms) AS INTEGER) AS total_duration_ms
 FROM visits
 WHERE
     (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
@@ -81,9 +82,10 @@ type GetDashboardStatsParams struct {
 }
 
 type GetDashboardStatsRow struct {
-	TotalVisits   int64
-	UniqueDomains int64
-	ActiveDays    int64
+	TotalVisits     int64
+	UniqueDomains   int64
+	ActiveDays      int64
+	TotalDurationMs int64
 }
 
 // Returns a single-row summary for the dashboard stat strip.
@@ -92,7 +94,12 @@ type GetDashboardStatsRow struct {
 func (q *Queries) GetDashboardStats(ctx context.Context, arg GetDashboardStatsParams) (GetDashboardStatsRow, error) {
 	row := q.db.QueryRowContext(ctx, getDashboardStats, arg.StartTime, arg.EndTime)
 	var i GetDashboardStatsRow
-	err := row.Scan(&i.TotalVisits, &i.UniqueDomains, &i.ActiveDays)
+	err := row.Scan(
+		&i.TotalVisits,
+		&i.UniqueDomains,
+		&i.ActiveDays,
+		&i.TotalDurationMs,
+	)
 	return i, err
 }
 

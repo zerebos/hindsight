@@ -3,7 +3,7 @@ import { formatNumber } from '$lib/utils'
 
 interface Props {
     label: string
-    value: number | null
+    value: number | string | null
     loading?: boolean
     subtitle?: string
 }
@@ -16,7 +16,7 @@ let { label, value, loading = false, subtitle }: Props = $props()
     {#if loading}
         <div class="stat-value loading-placeholder" style="width: 5rem; height: 1.5rem;"></div>
     {:else}
-        <span class="stat-value">{value !== null ? formatNumber(value) : '—'}</span>
+        <span class="stat-value">{value !== null ? (typeof value === 'number' ? formatNumber(value) : value) : '—'}</span>
     {/if}
     {#if subtitle}
         <span class="stat-subtitle">{subtitle}</span>
