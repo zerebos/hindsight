@@ -111,8 +111,8 @@ const totalBreakdownVisits = $derived(
                         <tr>
                             <th>#</th>
                             <th>Domain</th>
-                            <th style="text-align: right;">Visits</th>
-                            <th style="text-align: right; width: 80px;">Share</th>
+                            <th style="text-align: right;">Share</th>
+                            <th style="text-align: right; width: 80px;">Visits</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -125,13 +125,13 @@ const totalBreakdownVisits = $derived(
                                 <td class="domain-cell">
                                     <span class="domain-name">{domain.Host}</span>
                                 </td>
-                                <td class="visits-cell">{domain.TotalVisits.toLocaleString()}</td>
                                 <td class="share-cell">
                                     <div class="share-bar-wrap">
-                                        <div class="share-bar" style="width: {share}%"></div>
-                                        <span>{share}%</span>
+                                        <div class="share-bar" style="width: calc(5 * {share}px)"></div>
+                                        <span style:margin-left={share.length === 3 ? '1ch' : '0'}>{share}%</span>
                                     </div>
                                 </td>
+                                <td class="visits-cell">{domain.TotalVisits.toLocaleString()}</td>
                             </tr>
                         {/each}
                     </tbody>

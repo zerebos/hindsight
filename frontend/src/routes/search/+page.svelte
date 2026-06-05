@@ -329,10 +329,6 @@ const hasFilters = $derived(
         pointer-events: none;
     }
 
-    .search-input {
-        /* padding-left: 28px; */
-    }
-
     .domain-input {
         width: 180px;
     }
