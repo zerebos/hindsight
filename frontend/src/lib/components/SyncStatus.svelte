@@ -69,8 +69,9 @@ function hideTooltip() {
 </script>
 
 
-<div class="sync-status" class:syncing={appState.syncing} class:idle={!appState.syncing && appState.initialized}>
-    <span class="sync-indicator">
+<div class="sync-status" class:syncing={appState.syncing} class:error={!!appState.globalError} class:idle={!appState.syncing && appState.initialized}>
+    <div class="sync-indicator"></div>
+    <span class="sync-label">
         {label}
     </span>
     <button
@@ -103,15 +104,48 @@ function hideTooltip() {
     align-items: center;
     font-size: 0.875rem;
     color: var(--text-muted);
+    gap: 10px;
 }
 
 .sync-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.syncing .sync-indicator {
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.idle .sync-indicator {
+    background: var(--success);
+}
+
+.error .sync-indicator {
+    background: var(--error);
+}
+
+.sync-label {
     flex: 1;
 }
-.syncing .sync-indicator {
+.syncing .sync-label {
     color: var(--accent);
 }
-.idle .sync-indicator {
+.idle .sync-label {
     color: var(--text-muted);
 }
 

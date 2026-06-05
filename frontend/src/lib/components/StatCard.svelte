@@ -33,6 +33,7 @@ let { label, value, loading = false, subtitle }: Props = $props()
         border: 1px solid var(--border);
         border-radius: var(--radius);
         min-width: 120px;
+        flex: 1;
     }
 
     .stat-label {
