@@ -123,6 +123,25 @@ const syncIntervalOptions = [
     { value: 30,  label: 'Every 30 minutes' },
     { value: 60,  label: 'Every hour' },
 ]
+
+function getRelativeTimes(): Record<number, string> {
+    const rels: Record<number, string> = {}
+    for (const src of appState.sources) {
+        if (!src.LastSyncedAt.Valid) rels[src.ID] = 'never';
+        else rels[src.ID] = formatRelative(src.LastSyncedAt.Int64);
+    }
+    return rels
+}
+
+let relatives = $derived.by(getRelativeTimes);
+
+onMount(() => {
+    // Update relative times every minute
+    const refreshTimer = setInterval(() => {
+        relatives = getRelativeTimes();
+    }, 60 * 1000)
+    return () => clearInterval(refreshTimer)
+});
 </script>
 
 <div class="settings-page">
@@ -185,9 +204,7 @@ const syncIntervalOptions = [
                                 {nullStr(source.Label, source.Profile)}
                             </td>
                             <td class="time-cell">
-                                {source.LastSyncedAt.Valid
-                                    ? formatRelative(source.LastSyncedAt.Int64)
-                                    : 'never'}
+                                {relatives[source.ID]}
                             </td>
                             <td class="time-cell">
                                 {source.LastVisitSeen.Valid
@@ -397,9 +414,7 @@ const syncIntervalOptions = [
         flex-direction: column;
         gap: var(--space-4);
         padding: var(--space-4) var(--space-6);
-        height: 100%;
         overflow-y: auto;
-        max-width: 860px;
     }
 
     /* Section */

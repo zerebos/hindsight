@@ -9,6 +9,7 @@ import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
 import type { SyncResult } from '$hindsight/internal/ingestion/models'
 import '../app.css'
 import { formatRelative } from '$lib/utils'
+    import SyncStatus from "$lib/components/SyncStatus.svelte";
 
 let { children } = $props()
 let syncSettleTimer: ReturnType<typeof setTimeout>
@@ -98,13 +99,14 @@ const navItems = [
         </ul>
 
         <div class="sidebar-footer">
-            {#if appState.syncing}
+            <!-- {#if appState.syncing}
                 <span class="sync-indicator syncing">Syncing...</span>
             {:else if appState.lastSyncTime}
                 <span class="sync-indicator idle">Synced {formatRelative(appState.lastSyncTime)}</span>
             {:else if appState.initialized}
                 <span class="sync-indicator idle">Ready</span>
-            {/if}
+            {/if} -->
+            <SyncStatus />
         </div>
     </nav>
     {/if}
@@ -189,8 +191,8 @@ const navItems = [
         font-size: 0.75rem;
     }
 
-    .sync-indicator.syncing { color: var(--accent); }
-    .sync-indicator.idle    { color: var(--text-muted); }
+    /* .sync-indicator.syncing { color: var(--accent); }
+    .sync-indicator.idle    { color: var(--text-muted); } */
 
     .content {
         flex: 1;
