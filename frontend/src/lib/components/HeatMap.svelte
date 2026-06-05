@@ -10,8 +10,8 @@ interface Props {
 let { data, loading = false }: Props = $props()
 
 const CELL_SIZE = 14
-const CELL_GAP  = 2
-const LABEL_W   = 36  // space for hour labels on left
+const CELL_GAP  = 3
+const LABEL_W   = 30  // space for hour labels on left
 const LABEL_H   = 20  // space for day labels on top
 
 // Build a 7×24 grid — rows=days, cols=hours
@@ -89,7 +89,7 @@ function hideTooltip() {
             {/each}
 
             <!-- Hour labels (every 3 hours) -->
-            {#each Array.from({ length: 9 }, (_, i) => i * 3) as hour}
+            {#each Array.from({ length: 8 }, (_, i) => i * 3) as hour}
                 <text
                     x={cellX(hour) + CELL_SIZE / 2}
                     y={LABEL_H - 4}

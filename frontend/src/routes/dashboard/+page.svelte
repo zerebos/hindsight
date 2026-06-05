@@ -166,7 +166,7 @@ const totalBreakdownVisits = $derived(
         </section>
     </div>
 
-    <section class="section">
+    <section class="section chart-section">
         <h2 class="section-title">Visit History</h2>
         <TimeSeries
             data={dashboardState.timeSeries}
@@ -234,6 +234,12 @@ const totalBreakdownVisits = $derived(
         border: 1px solid var(--border);
         border-radius: var(--radius);
         padding: var(--space-3) var(--space-4);
+    }
+
+    .section.chart-section {
+        /* overflow-x: auto; */
+        overflow: hidden;
+        min-height: 200px;
     }
 
     .section-title {

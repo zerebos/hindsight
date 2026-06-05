@@ -45,17 +45,16 @@ function hideTooltip() {
 }
 </script>
 
-<div class="timeseries-wrapper" style="height: {height}px;">
+<div class="timeseries-wrapper" style="height: {height + 10}px;">
     {#if loading}
         <div class="loading-placeholder" style="height: 100%; border-radius: var(--radius-sm);"></div>
     {:else if data.length === 0}
         <div class="empty">No data for this period</div>
     {:else}
         <svg
-            width="100%"
+            width={data.length * (BAR_GAP + 4) + LABEL_W}
             height={height}
             viewBox="0 0 {data.length * (BAR_GAP + 4) + LABEL_W} {height}"
-            preserveAspectRatio="none"
             class="timeseries-svg"
             aria-label="Visit time series"
         >
@@ -109,11 +108,15 @@ function hideTooltip() {
     .timeseries-wrapper {
         position: relative;
         width: 100%;
+        overflow-x: auto;
+        background: var(--surface);
+        overflow-y: hidden;
+        padding-bottom: 14px;
     }
 
     .timeseries-svg {
         display: block;
-        width: 100%;
+        /* width: 100%; */
         overflow: visible;
     }
 

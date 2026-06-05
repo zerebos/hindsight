@@ -8,7 +8,6 @@ import { appState, markSyncStarted, markSyncComplete, markAllSyncsComplete, mark
 import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
 import type { SyncResult } from '$hindsight/internal/ingestion/models'
 import '../app.css'
-import { formatRelative } from '$lib/utils'
     import SyncStatus from "$lib/components/SyncStatus.svelte";
 
 let { children } = $props()
@@ -80,6 +79,7 @@ const navItems = [
     {#if page.url.pathname !== '/onboarding'}
     <nav class="sidebar">
         <div class="sidebar-header">
+            <span class="nav-icon">⌘</span>
             <span class="app-name">Hindsight</span>
         </div>
 
@@ -99,13 +99,6 @@ const navItems = [
         </ul>
 
         <div class="sidebar-footer">
-            <!-- {#if appState.syncing}
-                <span class="sync-indicator syncing">Syncing...</span>
-            {:else if appState.lastSyncTime}
-                <span class="sync-indicator idle">Synced {formatRelative(appState.lastSyncTime)}</span>
-            {:else if appState.initialized}
-                <span class="sync-indicator idle">Ready</span>
-            {/if} -->
             <SyncStatus />
         </div>
     </nav>
