@@ -115,7 +115,6 @@ const hasFilters = $derived(
     <div class="filter-bar">
         <div class="filter-row">
             <div class="search-input-wrap">
-                <span class="search-icon">⌕</span>
                 <input
                     class="input search-input"
                     type="text"
@@ -130,7 +129,17 @@ const hasFilters = $derived(
                         searchState.params.Text = ''
                         searchState.params.Page = 0
                         runSearch()
-                    }}>✕</button>
+                    }} aria-label="Clear search input">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
+                            <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" />
+                        </svg>
+                    </button>
+                {:else}
+                    <span class="search-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
+                            <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" />
+                        </svg>
+                    </span>
                 {/if}
             </div>
 
@@ -145,7 +154,11 @@ const hasFilters = $derived(
                     spellcheck="false"
                 />
                 {#if searchState.params.Domain}
-                    <button class="clear-btn" onclick={clearDomainFilter}>✕</button>
+                    <button class="clear-btn" onclick={clearDomainFilter} aria-label="Clear domain filter">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
+                            <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" />
+                        </svg>
+                    </button>
                 {/if}
             </div>
 
@@ -310,14 +323,14 @@ const hasFilters = $derived(
 
     .search-icon {
         position: absolute;
-        left: 8px;
+        right: 8px;
         color: var(--text-faint);
         font-size: 1rem;
         pointer-events: none;
     }
 
     .search-input {
-        padding-left: 28px;
+        /* padding-left: 28px; */
     }
 
     .domain-input {
@@ -343,6 +356,7 @@ const hasFilters = $derived(
     .sort-select {
         width: 130px;
         cursor: pointer;
+        height: 35px;
     }
 
     .clear-all-btn {
