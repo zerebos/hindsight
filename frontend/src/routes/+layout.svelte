@@ -94,7 +94,7 @@ const navItems = [
     </svg>
 {/snippet}
 
-<div class="shell" class:theme-light={appState.theme === 'light'} class:theme-dark={appState.theme === 'dark'}>
+<div class="shell" class:theme-light={appState.theme === 'light'} class:theme-dark={appState.theme === 'dark'} class:theme-amoled={appState.theme === 'amoled'}>
     {#if page.url.pathname !== '/onboarding'}
     <nav class="sidebar">
         <div class="sidebar-header">
@@ -178,6 +178,26 @@ const navItems = [
         --accent:        #4a8fe8;
         --accent-hover:  #5a9ef8;
         --accent-subtle: rgba(74, 143, 232, 0.15);
+    }
+
+    .shell.theme-amoled {
+        /* Base palette */
+        --bg:           #000000;
+        --surface:      #1a1a1a;
+        --surface-2:    #2a2a2a;
+        --surface-hover:#333333;
+        --border:       #3f3f3f;
+        --border-light: #5c5c5c;
+
+        /* Text */
+        --text:         #e5e7eb;
+        --text-muted:   #9ca3af;
+        --text-faint:   #6b7280;
+
+        /* Accent — blue, consistent with BD Blue family */
+        --accent:        #4a8fe8;
+        --accent-hover:  #5a9ef8;
+        --accent-subtle: rgba(74, 143, 232, 0.25);
     }
 
     .shell {

@@ -9,7 +9,7 @@ export const appState = $state({
     syncing: false,   // true while any sync is in progress
     lastSyncResults: new SvelteMap<number, SyncResult>(),
     lastSyncTime: null as number | null, // unix ms of last completed sync
-    theme: 'default' as 'light' | 'dark' | 'default',
+    theme: 'default' as 'light' | 'dark' | 'default' | 'amoled',
 });
 
 export function markSyncStarted() {
