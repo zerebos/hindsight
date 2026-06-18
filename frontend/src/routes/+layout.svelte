@@ -94,7 +94,7 @@ const navItems = [
     </svg>
 {/snippet}
 
-<div class="shell">
+<div class="shell" class:theme-light={appState.theme === 'light'} class:theme-dark={appState.theme === 'dark'}>
     {#if page.url.pathname !== '/onboarding'}
     <nav class="sidebar">
         <div class="sidebar-header">
@@ -140,7 +140,49 @@ const navItems = [
 </div>
 
 <style>
+    .shell.theme-light {
+        /* Base palette */
+        --bg:           #f8f9fa;
+        --surface:      #ffffff;
+        --surface-2:    #f9fafb;
+        --surface-hover:#f3f4f6;
+        --border:       #e5e7eb;
+        --border-light: #d1d5db;
+
+        /* Text */
+        --text:         #111111;
+        --text-muted:   #6b7280;
+        --text-faint:   #4a5568;
+
+        /* Accent — blue, consistent with BD Blue family */
+        --accent:        #4a8fe8;
+        --accent-hover:  #5a9ef8;
+        --accent-subtle: rgba(74, 143, 232, 0.08);
+    }
+
+    .shell.theme-dark {
+        /* Base palette */
+        --bg:           #111117;
+        --surface:      #1e1e28;
+        --surface-2:    #2a2a35;
+        --surface-hover:#33333f;
+        --border:       #3f3f4a;
+        --border-light: #5c5c68;
+
+        /* Text */
+        --text:         #e5e7eb;
+        --text-muted:   #9ca3af;
+        --text-faint:   #6b7280;
+
+        /* Accent — blue, consistent with BD Blue family */
+        --accent:        #4a8fe8;
+        --accent-hover:  #5a9ef8;
+        --accent-subtle: rgba(74, 143, 232, 0.15);
+    }
+
     .shell {
+        color: var(--text);
+        background: var(--bg);
         display: flex;
         height: 100vh;
         overflow: hidden;

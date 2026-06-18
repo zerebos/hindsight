@@ -34,8 +34,8 @@ function cellValue(day: number, hour: number): number {
 
 function cellOpacity(visits: number): number {
     if (visits === 0) return 0
-    // Minimum visible opacity 0.15, max 1.0
-    return 0.15 + (visits / maxVisits) * 0.85
+    // Minimum visible opacity 0.0, max 1.0
+    return 0.0 + (visits / maxVisits) * 1
 }
 
 function cellX(hour: number): number {

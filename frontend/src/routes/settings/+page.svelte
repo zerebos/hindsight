@@ -37,6 +37,7 @@ async function save() {
     if (!settings) return
     try {
         await UpdateSettings(settings)
+        appState.theme = settings.General.Theme as 'light' | 'dark' | 'default'
         clearTimeout(savedTimer)
         savedIndicator = true
         savedTimer = setTimeout(() => savedIndicator = false, 2000)
@@ -364,7 +365,7 @@ onMount(() => {
                             save()
                         }}
                     >
-                        <option value="system">System</option>
+                        <option value="default">Default</option>
                         <option value="dark">Dark</option>
                         <option value="light">Light</option>
                     </select>

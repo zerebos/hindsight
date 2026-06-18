@@ -72,8 +72,8 @@ html, body {
 body {
     font-family: var(--font-sans);
     font-size: var(--font-size-base);
-    color: var(--text);
-    background: var(--bg);
+    /* color: var(--text);
+    background: var(--bg); */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     user-select: none; /* Desktop app — prevent accidental text selection */
