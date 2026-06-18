@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { GetVisitTimeSeriesRow } from '$dbgen/models'
 import { formatShortDate, formatNumber } from '$lib/utils'
+    import {onMount} from "svelte";
 
 interface Props {
     data: GetVisitTimeSeriesRow[]
@@ -43,9 +44,17 @@ function showTooltip(event: MouseEvent, row: GetVisitTimeSeriesRow) {
 function hideTooltip() {
     tooltip = null
 }
+
+let wrapper = $state<HTMLDivElement>();
+onMount(() => {
+    if (wrapper) {
+        // Scroll to the end of the timeseries on mount
+        wrapper.scrollLeft = wrapper.scrollWidth
+    }
+})
 </script>
 
-<div class="timeseries-wrapper" style="height: {height + 10}px;">
+<div class="timeseries-wrapper" bind:this={wrapper} style="height: {height + 10}px;">
     {#if loading}
         <div class="loading-placeholder" style="height: 100%; border-radius: var(--radius-sm);"></div>
     {:else if data.length === 0}

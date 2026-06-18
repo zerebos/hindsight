@@ -94,7 +94,7 @@ const totalBreakdownVisits = $derived(
         />
         <StatCard
             label="Total Duration"
-            value={formatDuration(dashboardState.stats?.TotalDurationMs ?? 0, {maxUnits: 3, short: true})}
+            value={formatDuration(dashboardState.stats?.TotalDurationMs ?? 0, {maxUnits: 2, short: true})}
             loading={dashboardState.loading && !dashboardState.stats}
         />
         <StatCard
