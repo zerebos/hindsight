@@ -20,7 +20,7 @@ type Settings struct {
 type GeneralSettings struct {
 	LaunchAtLogin  bool   `toml:"launch_at_login"`
 	MinimizeToTray bool   `toml:"minimize_to_tray"`
-	Theme          string `toml:"theme"` // "system" | "light" | "dark"
+	Theme          string `toml:"theme"` // "default" | "light" | "dark" | "amoled"
 }
 
 type SyncSettings struct {
@@ -35,7 +35,7 @@ func Defaults() Settings {
 		General: GeneralSettings{
 			LaunchAtLogin:  false,
 			MinimizeToTray: true,
-			Theme:          "system",
+			Theme:          "default",
 		},
 		Sync: SyncSettings{
 			IntervalMinutes: 30,

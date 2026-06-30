@@ -4,6 +4,7 @@ import { page } from '$app/state'
 import { goto } from '$app/navigation'
 import { Events } from '@wailsio/runtime'
 import { GetSources } from '$hindsight/sourceservice'
+import { GetSettings } from '$hindsight/settingsservice'
 import { appState, markSyncStarted, markSyncComplete, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
 import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
 import type { SyncResult } from '$hindsight/internal/ingestion/models'
@@ -17,6 +18,15 @@ let syncSettleTimer: ReturnType<typeof setTimeout>
 // page from $app/state is already reactive in SvelteKit + Svelte 5
 
 onMount(async () => {
+    // Apply the persisted theme before anything renders so the saved
+    // appearance survives a restart.
+    try {
+        const settings = await GetSettings()
+        appState.theme = settings.General.Theme as 'light' | 'dark' | 'default' | 'amoled'
+    } catch (err) {
+        appState.globalError = String(err)
+    }
+
     // Load registered sources on startup
     try {
         appState.sources = await GetSources()

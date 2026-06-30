@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	_ "embed"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/zerebos/hindsight/internal/app"
 )
 
 //go:embed build/appicon.png
@@ -22,7 +20,7 @@ var icon []byte
 //   - SetIcon() argument type ([]byte vs path vs asset reference)
 //   - Menu construction API
 //   - OnClick / OnRightClick vs SetOnClick
-func setupTray(wailsApp *application.App, window *application.WebviewWindow, hindsight *app.App) {
+func setupTray(wailsApp *application.App, window *application.WebviewWindow, runtime *desktopRuntime) {
 	tray := wailsApp.SystemTray.New()
 
 	tray.SetIcon(icon)
@@ -39,23 +37,15 @@ func setupTray(wailsApp *application.App, window *application.WebviewWindow, hin
 	menu.AddSeparator()
 
 	menu.Add("Sync Now").OnClick(func(ctx *application.Context) {
-		wailsApp.Event.Emit("sync:started", int64(0)) // 0 = all sources
-		go func() {
-			results := hindsight.SyncAll(context.Background())
-			for _, r := range results {
-				if r.Error != nil {
-					wailsApp.Event.Emit("sync:error", r.Error.Error())
-				} else {
-					wailsApp.Event.Emit("sync:complete", r)
-				}
-			}
-		}()
+		runtime.triggerSync()
 	})
 
 	menu.AddSeparator()
 
 	menu.Add("Quit").OnClick(func(ctx *application.Context) {
-		wailsApp.Quit()
+		// Route through the runtime so the minimize-to-tray close hook lets
+		// the window actually close during shutdown.
+		runtime.quit()
 	})
 
 	tray.SetMenu(menu)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"log"
 
@@ -67,16 +66,15 @@ func main() {
 		MinWidth:  800,
 		MinHeight: 600,
 		URL: "/",
-		// Hide the window instead of closing it when the close button
-		// is pressed — keeps the app alive in the tray.
-		//
-		// NOTE: Verify the exact option name for "hide on close" in your
-		// version of Wails v3. In some builds this is:
-		//   HideOnClose: true
-		// or it may be handled via an OnClosing callback. Check:
-		// https://v3.wails.io/reference/options#webviewwindowoptions
+		// Close behavior (hide-to-tray vs. quit) is handled by the desktop
+		// runtime's WindowClosing hook based on the Minimize to tray setting —
+		// see desktopRuntime.onWindowClosing.
 	})
-	_ = mainWindow // used below once tray is wired
+	// The desktop runtime connects persisted settings to real behavior:
+	// launch-at-login, minimize-to-tray, the periodic sync timer, and
+	// sync-on-wake / sync-on-launch. It also owns the shared sync trigger so
+	// the tray menu and timers can't stack overlapping syncs.
+	runtime := newDesktopRuntime(wailsApp, mainWindow, hindsight)
 
 	// Set up the system tray.
 	//
@@ -84,23 +82,11 @@ func main() {
 	// Verify the exact method names against your installed version.
 	// The structure below reflects the API as of mid-2025 but may need
 	// adjustment. Check: https://v3.wails.io/guide/system-tray
-	setupTray(wailsApp, mainWindow, hindsight)
+	setupTray(wailsApp, mainWindow, runtime)
 
-	// Run sync on launch if configured.
-	cfg := hindsight.GetSettings()
-	if cfg.Sync.SyncOnLaunch {
-		wailsApp.Event.Emit("sync:started", int64(0)) // 0 = all sources
-		go func() {
-			results := hindsight.SyncAll(context.Background())
-			for _, r := range results {
-				if r.Error != nil {
-					wailsApp.Event.Emit("sync:error", r.Error.Error())
-				} else {
-					wailsApp.Event.Emit("sync:complete", r)
-				}
-			}
-		}()
-	}
+	// Apply current settings and install the runtime hooks. This also runs the
+	// sync-on-launch if enabled.
+	runtime.start()
 
 	// Run the application. Blocks until the app exits.
 	if err := wailsApp.Run(); err != nil {

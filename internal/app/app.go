@@ -25,6 +25,13 @@ type App struct {
 	settings  config.Settings
 	configDir string
 	dataDir   string
+
+	// onSettingsChanged, if set, is invoked after settings are successfully
+	// persisted. It lets the desktop layer react to changes (toggling
+	// launch-at-login, rescheduling the sync timer, …) without the core App
+	// depending on any GUI framework. nil in the CLI, where settings are
+	// read once per command and never change at runtime.
+	onSettingsChanged func(old, updated config.Settings)
 }
 
 // New initializes the application: resolves directories, loads config,
@@ -267,12 +274,25 @@ func (a *App) GetSettings() config.Settings {
 	return a.settings
 }
 
+// SetSettingsChangeHandler registers a callback invoked whenever settings are
+// updated via UpdateSettings. The handler receives the previous and the newly
+// applied settings so it can act only on the fields that actually changed.
+// Pass nil to clear. Only the desktop app uses this.
+func (a *App) SetSettingsChangeHandler(fn func(old, updated config.Settings)) {
+	a.onSettingsChanged = fn
+}
+
 // UpdateSettings persists new settings to disk and updates the in-memory state.
+// On success it notifies the registered settings-change handler, if any.
 func (a *App) UpdateSettings(settings config.Settings) error {
+	old := a.settings
 	if err := config.Save(config.ConfigPath(a.configDir), settings); err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
 	a.settings = settings
+	if a.onSettingsChanged != nil {
+		a.onSettingsChanged(old, settings)
+	}
 	return nil
 }
 
