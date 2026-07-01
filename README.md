@@ -9,11 +9,22 @@ Personal browser history intelligence. Hindsight reads your browser history dire
 ## Features
 
 **Analytics dashboard**
-- Total visits, unique domains, and active days across all browsers
-- Top visited domains with visit counts
-- Activity heatmap by day of week and hour of day (timezone-aware)
-- Visit volume time series
-- Per-browser breakdown
+
+Summary and charts:
+- Headline stats: total visits, unique domains, active days, total duration, and sources
+- Interactive visit-history chart (area/line with axis ticks, gridlines, and hover crosshair)
+- Activity heatmap by day of week and hour of day (timezone-aware), with an intensity legend and peak highlight
+- Busiest-hours and busiest-days distributions
+- Top visited domains with visit counts, and a per-browser breakdown donut
+
+Derived insights (computed from your data, no extra queries):
+- Daily average, busiest day, peak hour, top weekday, longest streak, chronotype, weekend share, top-domain focus, and momentum
+
+Deeper stats:
+- **Period-over-period trends** - visits/domains/active-days change versus the immediately preceding equal window, plus domain rank movers
+- **Tracking & privacy** - share of visits that carried tracking parameters, the most common parameters, and the most-tracked domains (derived from the preserved `raw_url`)
+- **Domain depth & diversity** - domains newly discovered this period, one-off (visited-once) domains, and top-10 concentration
+- **Time spent** - top domains by time, average per timed visit, and duration coverage (for browsers that report it)
 
 **Search**
 - Full-text search across URLs and page titles
@@ -177,7 +188,7 @@ Migrations run automatically on app startup. During development, delete the data
 
 **v1: Desktop app**
 - [ ] Wails v3 desktop shell
-- [ ] Analytics dashboard UI
+- [x] Analytics dashboard UI
 - [ ] Search UI
 - [ ] Settings UI with source management
 - [ ] Sync scheduling (launch, wake, interval)
@@ -186,7 +197,7 @@ Migrations run automatically on app startup. During development, delete the data
 - [ ] AI-powered domain tagging (local model preferred)
 - [ ] Browser extension + live sync
 - [ ] Self-hosted web version
-- [ ] Tracking parameter analytics
+- [x] Tracking parameter analytics
 
 **Future**
 - [ ] Cross-device sync
