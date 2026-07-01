@@ -38,15 +38,33 @@ export function GetDashboardStats(filter: app$0.DashboardFilter): $CancellablePr
     });
 }
 
+export function GetDomainInsights(filter: app$0.DashboardFilter): $CancellablePromise<app$0.DomainInsights> {
+    return $Call.ByID(458752966, filter).then(($result: any) => {
+        return $$createType5($result);
+    });
+}
+
+export function GetTimeSpent(filter: app$0.DashboardFilter): $CancellablePromise<app$0.TimeSpent> {
+    return $Call.ByID(2396875330, filter).then(($result: any) => {
+        return $$createType6($result);
+    });
+}
+
 export function GetTopDomains(filter: app$0.DashboardFilter, limit: number): $CancellablePromise<db$1.GetTopDomainsRow[]> {
     return $Call.ByID(3589137483, filter, limit).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
+    });
+}
+
+export function GetTrackingStats(filter: app$0.DashboardFilter): $CancellablePromise<db$0.TrackingStats> {
+    return $Call.ByID(3622654601, filter).then(($result: any) => {
+        return $$createType9($result);
     });
 }
 
 export function GetVisitTimeSeries(filter: app$0.DashboardFilter): $CancellablePromise<db$1.GetVisitTimeSeriesRow[]> {
     return $Call.ByID(1115427410, filter).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType11($result);
     });
 }
 
@@ -56,7 +74,10 @@ const $$createType1 = $Create.Array($$createType0);
 const $$createType2 = db$1.GetBrowserBreakdownRow.createFrom;
 const $$createType3 = $Create.Array($$createType2);
 const $$createType4 = db$1.GetDashboardStatsRow.createFrom;
-const $$createType5 = db$1.GetTopDomainsRow.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = db$1.GetVisitTimeSeriesRow.createFrom;
+const $$createType5 = app$0.DomainInsights.createFrom;
+const $$createType6 = app$0.TimeSpent.createFrom;
+const $$createType7 = db$1.GetTopDomainsRow.createFrom;
 const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = db$0.TrackingStats.createFrom;
+const $$createType10 = db$1.GetVisitTimeSeriesRow.createFrom;
+const $$createType11 = $Create.Array($$createType10);

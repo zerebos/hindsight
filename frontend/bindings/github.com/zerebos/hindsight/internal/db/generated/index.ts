@@ -4,6 +4,7 @@
 export {
     GetBrowserBreakdownRow,
     GetDashboardStatsRow,
+    GetTopDomainsByDurationRow,
     GetTopDomainsRow,
     GetVisitTimeSeriesRow,
     SearchVisitsRow,

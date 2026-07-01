@@ -198,6 +198,90 @@ func (a *App) GetBrowserBreakdown(ctx context.Context, f DashboardFilter) ([]dbg
 	})
 }
 
+// trackingTopN bounds how many tracking parameters / domains are surfaced.
+const trackingTopN = 8
+
+// GetTrackingStats analyzes tracking-parameter exposure within the filter
+// range: how many visits carried trackers, the most common tracking
+// parameters, and the most-tracked domains.
+func (a *App) GetTrackingStats(ctx context.Context, f DashboardFilter) (db.TrackingStats, error) {
+	rows, err := a.queries.GetTrackedVisits(ctx, dbgen.GetTrackedVisitsParams{
+		StartTime: f.StartTime,
+		EndTime:   f.EndTime,
+	})
+	if err != nil {
+		return db.TrackingStats{}, fmt.Errorf("get tracked visits: %w", err)
+	}
+	return db.BucketTracking(rows, trackingTopN), nil
+}
+
+// DomainInsights summarizes domain discovery and diversity for a period.
+type DomainInsights struct {
+	NewDomains    int64 // domains whose first-ever visit falls within the range
+	OneOffDomains int64 // domains visited exactly once within the range
+}
+
+// GetDomainInsights returns domain discovery/diversity counts for the range.
+func (a *App) GetDomainInsights(ctx context.Context, f DashboardFilter) (DomainInsights, error) {
+	newDomains, err := a.queries.CountNewDomains(ctx, dbgen.CountNewDomainsParams{
+		StartTime: f.StartTime,
+		EndTime:   f.EndTime,
+	})
+	if err != nil {
+		return DomainInsights{}, fmt.Errorf("count new domains: %w", err)
+	}
+
+	oneOffs, err := a.queries.CountOneOffDomains(ctx, dbgen.CountOneOffDomainsParams{
+		StartTime: f.StartTime,
+		EndTime:   f.EndTime,
+	})
+	if err != nil {
+		return DomainInsights{}, fmt.Errorf("count one-off domains: %w", err)
+	}
+
+	return DomainInsights{NewDomains: newDomains, OneOffDomains: oneOffs}, nil
+}
+
+// timeSpentTopN bounds how many domains are ranked by time spent.
+const timeSpentTopN = 10
+
+// TimeSpent summarizes browsing time within the range. Duration coverage is
+// reported explicitly because not every browser records visit duration.
+type TimeSpent struct {
+	TotalDurationMs    int64                             // total time across visits that report duration
+	VisitsWithDuration int64                             // visits (visit_count weighted) that report duration
+	TotalVisits        int64                             // all visits in range, for coverage %
+	TopDomains         []dbgen.GetTopDomainsByDurationRow // most time-consuming domains, descending
+}
+
+// GetTimeSpent returns duration totals, coverage, and the domains where the
+// most time was spent within the filter range.
+func (a *App) GetTimeSpent(ctx context.Context, f DashboardFilter) (TimeSpent, error) {
+	stats, err := a.queries.GetDurationStats(ctx, dbgen.GetDurationStatsParams{
+		StartTime: f.StartTime,
+		EndTime:   f.EndTime,
+	})
+	if err != nil {
+		return TimeSpent{}, fmt.Errorf("get duration stats: %w", err)
+	}
+
+	top, err := a.queries.GetTopDomainsByDuration(ctx, dbgen.GetTopDomainsByDurationParams{
+		StartTime: f.StartTime,
+		EndTime:   f.EndTime,
+		Limit:     timeSpentTopN,
+	})
+	if err != nil {
+		return TimeSpent{}, fmt.Errorf("get top domains by duration: %w", err)
+	}
+
+	return TimeSpent{
+		TotalDurationMs:    stats.TotalDurationMs,
+		VisitsWithDuration: stats.VisitsWithDuration,
+		TotalVisits:        stats.TotalVisits,
+		TopDomains:         top,
+	}, nil
+}
+
 // ----------------------------------------------------------------
 // Search
 // ----------------------------------------------------------------

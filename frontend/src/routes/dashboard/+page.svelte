@@ -1,19 +1,28 @@
 <script lang="ts">
-import { onMount } from 'svelte'
 import {
     GetDashboardStats,
     GetTopDomains,
     GetVisitTimeSeries,
     GetActivityHeatmap,
     GetBrowserBreakdown,
+    GetTrackingStats,
+    GetDomainInsights,
+    GetTimeSpent,
 } from '$hindsight/dashboardservice'
 import { dashboardState } from '$lib/stores/dashboard.svelte'
 import { appState } from '$lib/stores/app.svelte'
-import { formatDuration, nullStr } from '$lib/utils'
+import { formatDuration, nullStr, formatHour, paletteColor, DAY_LABELS } from '$lib/utils'
+import { hourTotals, weekdayTotals } from '$lib/analytics'
 import TimeRangePicker from '$lib/components/TimeRangePicker.svelte'
 import StatCard from '$lib/components/StatCard.svelte'
 import Heatmap from '$lib/components/HeatMap.svelte'
 import TimeSeries from '$lib/components/TimeSeries.svelte'
+import Insights from '$lib/components/Insights.svelte'
+import Donut from '$lib/components/Donut.svelte'
+import DistributionBars from '$lib/components/DistributionBars.svelte'
+import Trends from '$lib/components/Trends.svelte'
+import TrackingCard from '$lib/components/TrackingCard.svelte'
+import TimeSpentCard from '$lib/components/TimeSpentCard.svelte'
 import type { DashboardFilter } from '$happ/models'
 
 async function loadDashboard(filter: DashboardFilter) {
@@ -21,12 +30,15 @@ async function loadDashboard(filter: DashboardFilter) {
     dashboardState.error = null
 
     try {
-        const [stats, domains, series, heatmap, breakdown] = await Promise.all([
+        const [stats, domains, series, heatmap, breakdown, tracking, domainInsights, timeSpent] = await Promise.all([
             GetDashboardStats(filter),
             GetTopDomains(filter, 15),
             GetVisitTimeSeries(filter),
             GetActivityHeatmap(filter),
             GetBrowserBreakdown(filter),
+            GetTrackingStats(filter),
+            GetDomainInsights(filter),
+            GetTimeSpent(filter),
         ])
 
         dashboardState.stats            = stats
@@ -34,6 +46,26 @@ async function loadDashboard(filter: DashboardFilter) {
         dashboardState.timeSeries       = series
         dashboardState.heatmap          = heatmap
         dashboardState.browserBreakdown = breakdown
+        dashboardState.tracking         = tracking
+        dashboardState.domainInsights   = domainInsights
+        dashboardState.timeSpent        = timeSpent
+
+        // Period-over-period: compare against the immediately preceding window
+        // of equal length. Only meaningful when a bounded range is selected.
+        if (filter.StartTime > 0) {
+            const end = filter.EndTime || Date.now()
+            const len = end - filter.StartTime
+            const prevFilter = { StartTime: filter.StartTime - len, EndTime: filter.StartTime }
+            const [prevStats, prevDomains] = await Promise.all([
+                GetDashboardStats(prevFilter),
+                GetTopDomains(prevFilter, 20),
+            ])
+            dashboardState.prevStats      = prevStats
+            dashboardState.prevTopDomains = prevDomains
+        } else {
+            dashboardState.prevStats      = null
+            dashboardState.prevTopDomains = []
+        }
     } catch (err) {
         dashboardState.error = String(err)
     } finally {
@@ -61,6 +93,28 @@ function onFilterChange(filter: DashboardFilter) {
 const totalBreakdownVisits = $derived(
     dashboardState.browserBreakdown.reduce((sum, b) => sum + b.TotalVisits, 0)
 )
+
+const browserSegments = $derived(
+    dashboardState.browserBreakdown.map((b, i) => ({
+        label: nullStr(b.Label, b.Browser),
+        value: b.TotalVisits,
+        color: paletteColor(i),
+    }))
+)
+
+const hourLabels = Array.from({ length: 24 }, (_, h) => formatHour(h))
+const hourValues = $derived(hourTotals(dashboardState.heatmap))
+const weekdayValues = $derived(weekdayTotals(dashboardState.heatmap))
+
+const statsLoading = $derived(dashboardState.loading && !dashboardState.stats)
+const bounded = $derived(dashboardState.filter.StartTime > 0)
+
+const prevRangeLabel = $derived.by(() => {
+    if (!bounded) return ''
+    const end = dashboardState.filter.EndTime || Date.now()
+    const days = Math.round((end - dashboardState.filter.StartTime) / 86_400_000)
+    return `vs previous ${days}d`
+})
 </script>
 
 <div class="dashboard">
@@ -76,26 +130,27 @@ const totalBreakdownVisits = $derived(
         <div class="page-error">{dashboardState.error}</div>
     {/if}
 
+    <!-- Top-line KPIs -->
     <div class="stat-strip">
         <StatCard
             label="Total Visits"
             value={dashboardState.stats?.TotalVisits ?? null}
-            loading={dashboardState.loading && !dashboardState.stats}
+            loading={statsLoading}
         />
         <StatCard
             label="Unique Domains"
             value={dashboardState.stats?.UniqueDomains ?? null}
-            loading={dashboardState.loading && !dashboardState.stats}
+            loading={statsLoading}
         />
         <StatCard
             label="Active Days"
             value={dashboardState.stats?.ActiveDays ?? null}
-            loading={dashboardState.loading && !dashboardState.stats}
+            loading={statsLoading}
         />
         <StatCard
             label="Total Duration"
             value={formatDuration(dashboardState.stats?.TotalDurationMs ?? 0, {maxUnits: 2, short: true})}
-            loading={dashboardState.loading && !dashboardState.stats}
+            loading={statsLoading}
         />
         <StatCard
             label="Sources"
@@ -103,11 +158,45 @@ const totalBreakdownVisits = $derived(
         />
     </div>
 
+    <!-- Period-over-period trends (only when a bounded range is selected) -->
+    {#if bounded}
+        <Trends
+            stats={dashboardState.stats}
+            prevStats={dashboardState.prevStats}
+            topDomains={dashboardState.topDomains}
+            prevTopDomains={dashboardState.prevTopDomains}
+            rangeLabel={prevRangeLabel}
+            loading={dashboardState.loading && dashboardState.prevStats === null}
+        />
+    {/if}
+
+    <!-- Derived highlights -->
+    <Insights
+        timeSeries={dashboardState.timeSeries}
+        heatmap={dashboardState.heatmap}
+        topDomains={dashboardState.topDomains}
+        stats={dashboardState.stats}
+        domainInsights={dashboardState.domainInsights}
+        {bounded}
+        loading={dashboardState.loading && dashboardState.heatmap.length === 0}
+    />
+
+    <!-- Visit history -->
+    <section class="section">
+        <h2 class="section-title">Visit History</h2>
+        <TimeSeries
+            data={dashboardState.timeSeries}
+            loading={dashboardState.loading && dashboardState.timeSeries.length === 0}
+            height={220}
+        />
+    </section>
+
+    <!-- Domains + browsers -->
     <div class="main-grid">
         <section class="section domains-section">
             <h2 class="section-title">Top Domains</h2>
             {#if dashboardState.loading && dashboardState.topDomains.length === 0}
-                {#each Array(8) as _}
+                {#each Array(8) as _, i (i)}
                     <div class="loading-placeholder" style="height: 28px; margin-bottom: 2px; border-radius: 3px;"></div>
                 {/each}
             {:else}
@@ -121,10 +210,10 @@ const totalBreakdownVisits = $derived(
                         </tr>
                     </thead>
                     <tbody>
-                        {#each dashboardState.topDomains as domain, i}
-                            {@const share = dashboardState.stats
-                                ? (domain.TotalVisits / dashboardState.stats.TotalVisits * 100).toFixed(1)
-                                : '—'}
+                        {#each dashboardState.topDomains as domain, i (domain.Host)}
+                            {@const share = dashboardState.stats && dashboardState.stats.TotalVisits > 0
+                                ? (domain.TotalVisits / dashboardState.stats.TotalVisits * 100)
+                                : 0}
                             <tr>
                                 <td class="rank">{i + 1}</td>
                                 <td class="domain-cell">
@@ -132,8 +221,10 @@ const totalBreakdownVisits = $derived(
                                 </td>
                                 <td class="share-cell">
                                     <div class="share-bar-wrap">
-                                        <div class="share-bar" style="width: calc(5 * {share}px)"></div>
-                                        <span style:margin-left={share.length === 3 ? '1ch' : '0'}>{share}%</span>
+                                        <div class="share-bar-track">
+                                            <div class="share-bar" style="width: {Math.max(2, share)}%"></div>
+                                        </div>
+                                        <span class="share-pct">{share.toFixed(1)}%</span>
                                     </div>
                                 </td>
                                 <td class="visits-cell">{domain.TotalVisits.toLocaleString()}</td>
@@ -147,47 +238,72 @@ const totalBreakdownVisits = $derived(
         <section class="section breakdown-section">
             <h2 class="section-title">Browsers</h2>
             {#if dashboardState.loading && dashboardState.browserBreakdown.length === 0}
-                {#each Array(4) as _}
-                    <div class="loading-placeholder" style="height: 28px; margin-bottom: 2px; border-radius: 3px;"></div>
-                {/each}
+                <div class="loading-placeholder" style="height: 160px; border-radius: 50%; width: 160px; margin: 0 auto;"></div>
             {:else}
-                <div class="breakdown-list">
-                    {#each dashboardState.browserBreakdown as browser}
-                        {@const pct = totalBreakdownVisits > 0
-                            ? (browser.TotalVisits / totalBreakdownVisits * 100)
-                            : 0}
-                        <div class="breakdown-row">
-                            <div class="breakdown-meta">
-                                <span class="breakdown-label">{nullStr(browser.Label, browser.Browser)}</span>
-                                <span class="breakdown-visits text-muted">{browser.TotalVisits.toLocaleString()}</span>
-                            </div>
-                            <div class="breakdown-bar-track">
-                                <div class="breakdown-bar" style="width: {pct.toFixed(1)}%"></div>
-                            </div>
-                        </div>
-                    {/each}
-                </div>
+                <Donut
+                    segments={browserSegments}
+                    centerLabel="visits"
+                    size={160}
+                />
             {/if}
         </section>
     </div>
 
-    <section class="section chart-section">
-        <h2 class="section-title">Visit History</h2>
-        <TimeSeries
-            data={dashboardState.timeSeries}
-            loading={dashboardState.loading && dashboardState.timeSeries.length === 0}
-            height={140}
-        />
-    </section>
-
+    <!-- Heatmap -->
     <section class="section">
-        <h2 class="section-title">Activity by Hour</h2>
-        <p class="section-subtitle">Your current timezone · day of week × hour of day</p>
+        <h2 class="section-title">Activity Heatmap</h2>
+        <p class="section-subtitle">When you browse · day of week × hour of day · your current timezone</p>
         <Heatmap
             data={dashboardState.heatmap}
             loading={dashboardState.loading && dashboardState.heatmap.length === 0}
         />
     </section>
+
+    <!-- Rhythm: hour + weekday distributions -->
+    <div class="main-grid even">
+        <section class="section">
+            <h2 class="section-title">Busiest Hours</h2>
+            <DistributionBars
+                values={hourValues}
+                labels={hourLabels}
+                tickEvery={3}
+                loading={dashboardState.loading && dashboardState.heatmap.length === 0}
+                height={130}
+            />
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">Busiest Days</h2>
+            <DistributionBars
+                values={weekdayValues}
+                labels={[...DAY_LABELS]}
+                loading={dashboardState.loading && dashboardState.heatmap.length === 0}
+                height={130}
+            />
+        </section>
+    </div>
+
+    <!-- Privacy + time spent -->
+    <div class="main-grid even">
+        <section class="section">
+            <h2 class="section-title">Tracking &amp; Privacy</h2>
+            <p class="section-subtitle">Tracking parameters stripped from your links</p>
+            <TrackingCard
+                tracking={dashboardState.tracking}
+                totalVisits={dashboardState.stats?.TotalVisits ?? 0}
+                loading={dashboardState.loading && dashboardState.tracking === null}
+            />
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">Time Spent</h2>
+            <p class="section-subtitle">Based on browsers that report visit duration</p>
+            <TimeSpentCard
+                timeSpent={dashboardState.timeSpent}
+                loading={dashboardState.loading && dashboardState.timeSpent === null}
+            />
+        </section>
+    </div>
 </div>
 
 <style>
@@ -225,13 +341,18 @@ const totalBreakdownVisits = $derived(
         display: flex;
         gap: var(--space-3);
         flex-shrink: 0;
+        flex-wrap: wrap;
     }
 
     .main-grid {
         display: grid;
-        grid-template-columns: 1fr 280px;
+        grid-template-columns: 1fr 300px;
         gap: var(--space-4);
         align-items: start;
+    }
+
+    .main-grid.even {
+        grid-template-columns: 1fr 1fr;
     }
 
     .section {
@@ -241,10 +362,9 @@ const totalBreakdownVisits = $derived(
         padding: var(--space-3) var(--space-4);
     }
 
-    .section.chart-section {
-        /* overflow-x: auto; */
-        overflow: hidden;
-        min-height: 200px;
+    .breakdown-section {
+        display: flex;
+        flex-direction: column;
     }
 
     .section-title {
@@ -285,7 +405,7 @@ const totalBreakdownVisits = $derived(
         color: var(--text-muted);
     }
 
-    .share-cell { text-align: right; }
+    .share-cell { text-align: right; width: 130px; }
 
     .share-bar-wrap {
         display: flex;
@@ -296,58 +416,26 @@ const totalBreakdownVisits = $derived(
         color: var(--text-faint);
     }
 
-    .share-bar {
-        height: 3px;
-        background: var(--accent);
-        border-radius: 2px;
-        opacity: 0.5;
-        min-width: 1px;
-    }
-
-    .breakdown-list {
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-2);
-    }
-
-    .breakdown-row {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-
-    .breakdown-meta {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-    }
-
-    .breakdown-label {
-        font-size: var(--font-size-sm);
-        color: var(--text);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 160px;
-    }
-
-    .breakdown-visits {
-        font-size: var(--font-size-xs);
-        font-variant-numeric: tabular-nums;
-        flex-shrink: 0;
-    }
-
-    .breakdown-bar-track {
-        height: 3px;
+    .share-bar-track {
+        flex: 1;
+        max-width: 64px;
+        height: 4px;
         background: var(--surface-2);
         border-radius: 2px;
         overflow: hidden;
     }
 
-    .breakdown-bar {
+    .share-bar {
         height: 100%;
         background: var(--accent);
         border-radius: 2px;
         opacity: 0.6;
+        min-width: 1px;
+    }
+
+    .share-pct {
+        font-variant-numeric: tabular-nums;
+        width: 3.2ch;
+        text-align: right;
     }
 </style>

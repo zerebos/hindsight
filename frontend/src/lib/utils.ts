@@ -161,12 +161,46 @@ export function formatNumber(n: number): string {
 export function formatCompact(n: number): string {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toString();
+    return Math.round(n).toString();
+}
+
+/**
+ * Format a fraction (0..1) as a rounded percentage string.
+ * e.g. 0.423 -> "42%"
+ */
+export function formatPercent(fraction: number, digits = 0): string {
+    return `${(fraction * 100).toFixed(digits)}%`;
+}
+
+/**
+ * Format a signed percentage for trend/momentum display.
+ * e.g. 12 -> "+12%", -5 -> "-5%"
+ */
+export function formatSigned(n: number, suffix = '%'): string {
+    const sign = n > 0 ? '+' : '';
+    return `${sign}${n}${suffix}`;
 }
 
 // ----------------------------------------------------------------
 // Day/time labels (for heatmap)
 // ----------------------------------------------------------------
+
+// Categorical palette for charts (donut segments etc). Tuned to read well
+// on both the dark and light themes. Index past the end wraps around.
+export const CHART_PALETTE = [
+    '#4a8fe8', // accent blue
+    '#4ade80', // green
+    '#fbbf24', // amber
+    '#f472b6', // pink
+    '#a78bfa', // violet
+    '#22d3ee', // cyan
+    '#fb923c', // orange
+    '#94a3b8', // slate
+] as const;
+
+export function paletteColor(i: number): string {
+    return CHART_PALETTE[i % CHART_PALETTE.length];
+}
 
 export const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 export const DAY_LABELS_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;

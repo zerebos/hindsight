@@ -46,6 +46,41 @@ export class DashboardFilter {
 }
 
 /**
+ * DomainInsights summarizes domain discovery and diversity for a period.
+ */
+export class DomainInsights {
+    /**
+     * domains whose first-ever visit falls within the range
+     */
+    "NewDomains": number;
+
+    /**
+     * domains visited exactly once within the range
+     */
+    "OneOffDomains": number;
+
+    /** Creates a new DomainInsights instance. */
+    constructor($$source: Partial<DomainInsights> = {}) {
+        if (!("NewDomains" in $$source)) {
+            this["NewDomains"] = 0;
+        }
+        if (!("OneOffDomains" in $$source)) {
+            this["OneOffDomains"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DomainInsights instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DomainInsights {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DomainInsights($$parsedSource as Partial<DomainInsights>);
+    }
+}
+
+/**
  * SearchParams holds all search and filter parameters for the query view.
  */
 export class SearchParams {
@@ -160,6 +195,64 @@ export class SearchResults {
     }
 }
 
+/**
+ * TimeSpent summarizes browsing time within the range. Duration coverage is
+ * reported explicitly because not every browser records visit duration.
+ */
+export class TimeSpent {
+    /**
+     * total time across visits that report duration
+     */
+    "TotalDurationMs": number;
+
+    /**
+     * visits (visit_count weighted) that report duration
+     */
+    "VisitsWithDuration": number;
+
+    /**
+     * all visits in range, for coverage %
+     */
+    "TotalVisits": number;
+
+    /**
+     * most time-consuming domains, descending
+     */
+    "TopDomains": db$0.GetTopDomainsByDurationRow[];
+
+    /** Creates a new TimeSpent instance. */
+    constructor($$source: Partial<TimeSpent> = {}) {
+        if (!("TotalDurationMs" in $$source)) {
+            this["TotalDurationMs"] = 0;
+        }
+        if (!("VisitsWithDuration" in $$source)) {
+            this["VisitsWithDuration"] = 0;
+        }
+        if (!("TotalVisits" in $$source)) {
+            this["TotalVisits"] = 0;
+        }
+        if (!("TopDomains" in $$source)) {
+            this["TopDomains"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TimeSpent instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TimeSpent {
+        const $$createField3_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("TopDomains" in $$parsedSource) {
+            $$parsedSource["TopDomains"] = $$createField3_0($$parsedSource["TopDomains"]);
+        }
+        return new TimeSpent($$parsedSource as Partial<TimeSpent>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = db$0.SearchVisitsRow.createFrom;
 const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = db$0.GetTopDomainsByDurationRow.createFrom;
+const $$createType3 = $Create.Array($$createType2);

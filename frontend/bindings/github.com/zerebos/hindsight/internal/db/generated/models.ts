@@ -79,6 +79,31 @@ export class GetDashboardStatsRow {
     }
 }
 
+export class GetTopDomainsByDurationRow {
+    "Host": string;
+    "TotalDurationMs": number;
+
+    /** Creates a new GetTopDomainsByDurationRow instance. */
+    constructor($$source: Partial<GetTopDomainsByDurationRow> = {}) {
+        if (!("Host" in $$source)) {
+            this["Host"] = "";
+        }
+        if (!("TotalDurationMs" in $$source)) {
+            this["TotalDurationMs"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GetTopDomainsByDurationRow instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GetTopDomainsByDurationRow {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GetTopDomainsByDurationRow($$parsedSource as Partial<GetTopDomainsByDurationRow>);
+    }
+}
+
 export class GetTopDomainsRow {
     "Host": string;
     "TotalVisits": number;
