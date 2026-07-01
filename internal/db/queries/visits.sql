@@ -111,12 +111,81 @@ WHERE
 -- Returns a single-row summary for the dashboard stat strip.
 -- active_days is computed in UTC - close enough for a summary stat and
 -- avoids timezone arithmetic in SQL entirely.
+-- COALESCE guards against an empty range (all-NULL aggregates) which would
+-- otherwise fail to scan into non-nullable integers.
 SELECT
-    CAST(SUM(visit_count) AS INTEGER) AS total_visits,
+    CAST(COALESCE(SUM(visit_count), 0) AS INTEGER) AS total_visits,
     COUNT(DISTINCT domain_id) AS unique_domains,
     COUNT(DISTINCT (visited_at / 86400000)) AS active_days,
-    CAST(SUM(duration_ms) AS INTEGER) AS total_duration_ms
+    CAST(COALESCE(SUM(duration_ms), 0) AS INTEGER) AS total_duration_ms
 FROM visits
 WHERE
     (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND
     (CAST(@end_time   AS INTEGER) = 0 OR visited_at <= CAST(@end_time   AS INTEGER));
+
+-- name: GetTrackedVisits :many
+-- Returns visits whose raw_url was preserved (normalization changed the URL)
+-- within the range. Tracking-parameter detection is done in Go against the
+-- raw_url query string, since raw_url is also set by non-tracking changes
+-- (fragment stripping, re-encoding) and must not be counted as "tracked".
+SELECT
+    v.raw_url,
+    d.host,
+    v.visit_count
+FROM visits v
+JOIN domains d ON v.domain_id = d.id
+WHERE
+    v.raw_url IS NOT NULL AND
+    (CAST(@start_time AS INTEGER) = 0 OR v.visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR v.visited_at <= CAST(@end_time   AS INTEGER));
+
+-- name: CountNewDomains :one
+-- Counts domains whose first-ever visit (across all history) falls within
+-- the range -- i.e. domains discovered during this period.
+SELECT COUNT(*) FROM (
+    SELECT domain_id, MIN(visited_at) AS first_seen
+    FROM visits
+    GROUP BY domain_id
+) first_visits
+WHERE
+    (CAST(@start_time AS INTEGER) = 0 OR first_seen >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR first_seen <= CAST(@end_time   AS INTEGER));
+
+-- name: CountOneOffDomains :one
+-- Counts domains visited exactly once within the range.
+SELECT COUNT(*) FROM (
+    SELECT domain_id, SUM(visit_count) AS total
+    FROM visits
+    WHERE
+        (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND
+        (CAST(@end_time   AS INTEGER) = 0 OR visited_at <= CAST(@end_time   AS INTEGER))
+    GROUP BY domain_id
+    HAVING total = 1
+) one_offs;
+
+-- name: GetDurationStats :one
+-- Total time and duration coverage within the range. Coverage matters because
+-- not every browser reports visit duration.
+SELECT
+    CAST(COALESCE(SUM(duration_ms), 0) AS INTEGER) AS total_duration_ms,
+    CAST(SUM(CASE WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN visit_count ELSE 0 END) AS INTEGER) AS visits_with_duration,
+    CAST(SUM(visit_count) AS INTEGER) AS total_visits
+FROM visits
+WHERE
+    (CAST(@start_time AS INTEGER) = 0 OR visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR visited_at <= CAST(@end_time   AS INTEGER));
+
+-- name: GetTopDomainsByDuration :many
+-- Most time-consuming domains within the range, ranked by total duration.
+SELECT
+    d.host,
+    CAST(COALESCE(SUM(v.duration_ms), 0) AS INTEGER) AS total_duration_ms
+FROM visits v
+JOIN domains d ON v.domain_id = d.id
+WHERE
+    v.duration_ms IS NOT NULL AND v.duration_ms > 0 AND
+    (CAST(@start_time AS INTEGER) = 0 OR v.visited_at >= CAST(@start_time AS INTEGER)) AND
+    (CAST(@end_time   AS INTEGER) = 0 OR v.visited_at <= CAST(@end_time   AS INTEGER))
+GROUP BY d.id, d.host
+ORDER BY total_duration_ms DESC
+LIMIT @limit;

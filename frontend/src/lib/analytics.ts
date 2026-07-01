@@ -216,8 +216,9 @@ export interface DomainPoint {
 }
 
 export interface Concentration {
-    topShare: number   // share of the single most-visited domain
-    top3Share: number  // combined share of the top 3 domains
+    topShare: number    // share of the single most-visited domain
+    top3Share: number   // combined share of the top 3 domains
+    top10Share: number  // combined share of the top 10 domains
 }
 
 /**
@@ -228,8 +229,57 @@ export function domainConcentration(domains: DomainPoint[], totalVisits: number)
     if (totalVisits <= 0 || domains.length === 0) return null
     const top = domains[0]?.TotalVisits ?? 0
     const top3 = domains.slice(0, 3).reduce((s, d) => s + d.TotalVisits, 0)
+    const top10 = domains.slice(0, 10).reduce((s, d) => s + d.TotalVisits, 0)
     return {
         topShare: top / totalVisits,
         top3Share: top3 / totalVisits,
+        top10Share: top10 / totalVisits,
     }
+}
+
+// ----------------------------------------------------------------
+// Period-over-period trends
+// ----------------------------------------------------------------
+
+/**
+ * Percentage change from `previous` to `current`. Returns null when there's
+ * no meaningful baseline (previous is 0 and current is 0).
+ */
+export function pctChange(current: number, previous: number): number | null {
+    if (previous === 0) {
+        if (current === 0) return null
+        return 100
+    }
+    return Math.round(((current - previous) / previous) * 100)
+}
+
+export interface RankMover {
+    host: string
+    delta: number // positions climbed since the previous period (>0 = up)
+    isNew: boolean // not present in the previous period's ranking
+}
+
+/**
+ * Domains that climbed the ranking (or newly entered it) between the previous
+ * and current period. Both inputs are visit-count-descending. Returns the
+ * biggest climbers first; brand-new entries are ranked by their new position.
+ */
+export function rankMovers(
+    current: { Host: string }[],
+    previous: { Host: string }[],
+    topN = 4,
+): RankMover[] {
+    const prevRank = new Map(previous.map((d, i) => [d.Host, i]))
+    const movers: RankMover[] = []
+    current.forEach((d, currRank) => {
+        const pr = prevRank.get(d.Host)
+        if (pr === undefined) {
+            // New entry: treat as a climber proportional to how high it landed.
+            movers.push({ host: d.Host, delta: current.length - currRank, isNew: true })
+        } else if (pr > currRank) {
+            movers.push({ host: d.Host, delta: pr - currRank, isNew: false })
+        }
+    })
+    movers.sort((a, b) => b.delta - a.delta)
+    return movers.slice(0, topN)
 }

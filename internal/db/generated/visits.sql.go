@@ -10,6 +10,56 @@ import (
 	"database/sql"
 )
 
+const countNewDomains = `-- name: CountNewDomains :one
+SELECT COUNT(*) FROM (
+    SELECT domain_id, MIN(visited_at) AS first_seen
+    FROM visits
+    GROUP BY domain_id
+) first_visits
+WHERE
+    (CAST(?1 AS INTEGER) = 0 OR first_seen >= CAST(?1 AS INTEGER)) AND
+    (CAST(?2   AS INTEGER) = 0 OR first_seen <= CAST(?2   AS INTEGER))
+`
+
+type CountNewDomainsParams struct {
+	StartTime int64
+	EndTime   int64
+}
+
+// Counts domains whose first-ever visit (across all history) falls within
+// the range -- i.e. domains discovered during this period.
+func (q *Queries) CountNewDomains(ctx context.Context, arg CountNewDomainsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countNewDomains, arg.StartTime, arg.EndTime)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countOneOffDomains = `-- name: CountOneOffDomains :one
+SELECT COUNT(*) FROM (
+    SELECT domain_id, SUM(visit_count) AS total
+    FROM visits
+    WHERE
+        (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
+        (CAST(?2   AS INTEGER) = 0 OR visited_at <= CAST(?2   AS INTEGER))
+    GROUP BY domain_id
+    HAVING total = 1
+) one_offs
+`
+
+type CountOneOffDomainsParams struct {
+	StartTime int64
+	EndTime   int64
+}
+
+// Counts domains visited exactly once within the range.
+func (q *Queries) CountOneOffDomains(ctx context.Context, arg CountOneOffDomainsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOneOffDomains, arg.StartTime, arg.EndTime)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countSearchVisits = `-- name: CountSearchVisits :one
 SELECT COUNT(*)
 FROM visits v
@@ -66,10 +116,10 @@ func (q *Queries) CountVisitsBySource(ctx context.Context, sourceID int64) (int6
 
 const getDashboardStats = `-- name: GetDashboardStats :one
 SELECT
-    CAST(SUM(visit_count) AS INTEGER) AS total_visits,
+    CAST(COALESCE(SUM(visit_count), 0) AS INTEGER) AS total_visits,
     COUNT(DISTINCT domain_id) AS unique_domains,
     COUNT(DISTINCT (visited_at / 86400000)) AS active_days,
-    CAST(SUM(duration_ms) AS INTEGER) AS total_duration_ms
+    CAST(COALESCE(SUM(duration_ms), 0) AS INTEGER) AS total_duration_ms
 FROM visits
 WHERE
     (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
@@ -91,6 +141,8 @@ type GetDashboardStatsRow struct {
 // Returns a single-row summary for the dashboard stat strip.
 // active_days is computed in UTC - close enough for a summary stat and
 // avoids timezone arithmetic in SQL entirely.
+// COALESCE guards against an empty range (all-NULL aggregates) which would
+// otherwise fail to scan into non-nullable integers.
 func (q *Queries) GetDashboardStats(ctx context.Context, arg GetDashboardStatsParams) (GetDashboardStatsRow, error) {
 	row := q.db.QueryRowContext(ctx, getDashboardStats, arg.StartTime, arg.EndTime)
 	var i GetDashboardStatsRow
@@ -100,6 +152,37 @@ func (q *Queries) GetDashboardStats(ctx context.Context, arg GetDashboardStatsPa
 		&i.ActiveDays,
 		&i.TotalDurationMs,
 	)
+	return i, err
+}
+
+const getDurationStats = `-- name: GetDurationStats :one
+SELECT
+    CAST(COALESCE(SUM(duration_ms), 0) AS INTEGER) AS total_duration_ms,
+    CAST(SUM(CASE WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN visit_count ELSE 0 END) AS INTEGER) AS visits_with_duration,
+    CAST(SUM(visit_count) AS INTEGER) AS total_visits
+FROM visits
+WHERE
+    (CAST(?1 AS INTEGER) = 0 OR visited_at >= CAST(?1 AS INTEGER)) AND
+    (CAST(?2   AS INTEGER) = 0 OR visited_at <= CAST(?2   AS INTEGER))
+`
+
+type GetDurationStatsParams struct {
+	StartTime int64
+	EndTime   int64
+}
+
+type GetDurationStatsRow struct {
+	TotalDurationMs    int64
+	VisitsWithDuration int64
+	TotalVisits        int64
+}
+
+// Total time and duration coverage within the range. Coverage matters because
+// not every browser reports visit duration.
+func (q *Queries) GetDurationStats(ctx context.Context, arg GetDurationStatsParams) (GetDurationStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getDurationStats, arg.StartTime, arg.EndTime)
+	var i GetDurationStatsRow
+	err := row.Scan(&i.TotalDurationMs, &i.VisitsWithDuration, &i.TotalVisits)
 	return i, err
 }
 
@@ -197,6 +280,107 @@ func (q *Queries) GetTopDomains(ctx context.Context, arg GetTopDomainsParams) ([
 	for rows.Next() {
 		var i GetTopDomainsRow
 		if err := rows.Scan(&i.Host, &i.TotalVisits); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTopDomainsByDuration = `-- name: GetTopDomainsByDuration :many
+SELECT
+    d.host,
+    CAST(COALESCE(SUM(v.duration_ms), 0) AS INTEGER) AS total_duration_ms
+FROM visits v
+JOIN domains d ON v.domain_id = d.id
+WHERE
+    v.duration_ms IS NOT NULL AND v.duration_ms > 0 AND
+    (CAST(?1 AS INTEGER) = 0 OR v.visited_at >= CAST(?1 AS INTEGER)) AND
+    (CAST(?2   AS INTEGER) = 0 OR v.visited_at <= CAST(?2   AS INTEGER))
+GROUP BY d.id, d.host
+ORDER BY total_duration_ms DESC
+LIMIT ?3
+`
+
+type GetTopDomainsByDurationParams struct {
+	StartTime int64
+	EndTime   int64
+	Limit     int64
+}
+
+type GetTopDomainsByDurationRow struct {
+	Host            string
+	TotalDurationMs int64
+}
+
+// Most time-consuming domains within the range, ranked by total duration.
+func (q *Queries) GetTopDomainsByDuration(ctx context.Context, arg GetTopDomainsByDurationParams) ([]GetTopDomainsByDurationRow, error) {
+	rows, err := q.db.QueryContext(ctx, getTopDomainsByDuration, arg.StartTime, arg.EndTime, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTopDomainsByDurationRow
+	for rows.Next() {
+		var i GetTopDomainsByDurationRow
+		if err := rows.Scan(&i.Host, &i.TotalDurationMs); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTrackedVisits = `-- name: GetTrackedVisits :many
+SELECT
+    v.raw_url,
+    d.host,
+    v.visit_count
+FROM visits v
+JOIN domains d ON v.domain_id = d.id
+WHERE
+    v.raw_url IS NOT NULL AND
+    (CAST(?1 AS INTEGER) = 0 OR v.visited_at >= CAST(?1 AS INTEGER)) AND
+    (CAST(?2   AS INTEGER) = 0 OR v.visited_at <= CAST(?2   AS INTEGER))
+`
+
+type GetTrackedVisitsParams struct {
+	StartTime int64
+	EndTime   int64
+}
+
+type GetTrackedVisitsRow struct {
+	RawUrl     sql.NullString
+	Host       string
+	VisitCount int64
+}
+
+// Returns visits whose raw_url was preserved (normalization changed the URL)
+// within the range. Tracking-parameter detection is done in Go against the
+// raw_url query string, since raw_url is also set by non-tracking changes
+// (fragment stripping, re-encoding) and must not be counted as "tracked".
+func (q *Queries) GetTrackedVisits(ctx context.Context, arg GetTrackedVisitsParams) ([]GetTrackedVisitsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getTrackedVisits, arg.StartTime, arg.EndTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTrackedVisitsRow
+	for rows.Next() {
+		var i GetTrackedVisitsRow
+		if err := rows.Scan(&i.RawUrl, &i.Host, &i.VisitCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

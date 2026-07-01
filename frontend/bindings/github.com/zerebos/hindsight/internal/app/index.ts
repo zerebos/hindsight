@@ -3,6 +3,8 @@
 
 export {
     DashboardFilter,
+    DomainInsights,
     SearchParams,
-    SearchResults
+    SearchResults,
+    TimeSpent
 } from "./models.js";

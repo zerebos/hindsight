@@ -5,6 +5,9 @@ import {
     GetVisitTimeSeries,
     GetActivityHeatmap,
     GetBrowserBreakdown,
+    GetTrackingStats,
+    GetDomainInsights,
+    GetTimeSpent,
 } from '$hindsight/dashboardservice'
 import { dashboardState } from '$lib/stores/dashboard.svelte'
 import { appState } from '$lib/stores/app.svelte'
@@ -17,6 +20,9 @@ import TimeSeries from '$lib/components/TimeSeries.svelte'
 import Insights from '$lib/components/Insights.svelte'
 import Donut from '$lib/components/Donut.svelte'
 import DistributionBars from '$lib/components/DistributionBars.svelte'
+import Trends from '$lib/components/Trends.svelte'
+import TrackingCard from '$lib/components/TrackingCard.svelte'
+import TimeSpentCard from '$lib/components/TimeSpentCard.svelte'
 import type { DashboardFilter } from '$happ/models'
 
 async function loadDashboard(filter: DashboardFilter) {
@@ -24,12 +30,15 @@ async function loadDashboard(filter: DashboardFilter) {
     dashboardState.error = null
 
     try {
-        const [stats, domains, series, heatmap, breakdown] = await Promise.all([
+        const [stats, domains, series, heatmap, breakdown, tracking, domainInsights, timeSpent] = await Promise.all([
             GetDashboardStats(filter),
             GetTopDomains(filter, 15),
             GetVisitTimeSeries(filter),
             GetActivityHeatmap(filter),
             GetBrowserBreakdown(filter),
+            GetTrackingStats(filter),
+            GetDomainInsights(filter),
+            GetTimeSpent(filter),
         ])
 
         dashboardState.stats            = stats
@@ -37,6 +46,26 @@ async function loadDashboard(filter: DashboardFilter) {
         dashboardState.timeSeries       = series
         dashboardState.heatmap          = heatmap
         dashboardState.browserBreakdown = breakdown
+        dashboardState.tracking         = tracking
+        dashboardState.domainInsights   = domainInsights
+        dashboardState.timeSpent        = timeSpent
+
+        // Period-over-period: compare against the immediately preceding window
+        // of equal length. Only meaningful when a bounded range is selected.
+        if (filter.StartTime > 0) {
+            const end = filter.EndTime || Date.now()
+            const len = end - filter.StartTime
+            const prevFilter = { StartTime: filter.StartTime - len, EndTime: filter.StartTime }
+            const [prevStats, prevDomains] = await Promise.all([
+                GetDashboardStats(prevFilter),
+                GetTopDomains(prevFilter, 20),
+            ])
+            dashboardState.prevStats      = prevStats
+            dashboardState.prevTopDomains = prevDomains
+        } else {
+            dashboardState.prevStats      = null
+            dashboardState.prevTopDomains = []
+        }
     } catch (err) {
         dashboardState.error = String(err)
     } finally {
@@ -78,6 +107,14 @@ const hourValues = $derived(hourTotals(dashboardState.heatmap))
 const weekdayValues = $derived(weekdayTotals(dashboardState.heatmap))
 
 const statsLoading = $derived(dashboardState.loading && !dashboardState.stats)
+const bounded = $derived(dashboardState.filter.StartTime > 0)
+
+const prevRangeLabel = $derived.by(() => {
+    if (!bounded) return ''
+    const end = dashboardState.filter.EndTime || Date.now()
+    const days = Math.round((end - dashboardState.filter.StartTime) / 86_400_000)
+    return `vs previous ${days}d`
+})
 </script>
 
 <div class="dashboard">
@@ -121,12 +158,26 @@ const statsLoading = $derived(dashboardState.loading && !dashboardState.stats)
         />
     </div>
 
+    <!-- Period-over-period trends (only when a bounded range is selected) -->
+    {#if bounded}
+        <Trends
+            stats={dashboardState.stats}
+            prevStats={dashboardState.prevStats}
+            topDomains={dashboardState.topDomains}
+            prevTopDomains={dashboardState.prevTopDomains}
+            rangeLabel={prevRangeLabel}
+            loading={dashboardState.loading && dashboardState.prevStats === null}
+        />
+    {/if}
+
     <!-- Derived highlights -->
     <Insights
         timeSeries={dashboardState.timeSeries}
         heatmap={dashboardState.heatmap}
         topDomains={dashboardState.topDomains}
         stats={dashboardState.stats}
+        domainInsights={dashboardState.domainInsights}
+        {bounded}
         loading={dashboardState.loading && dashboardState.heatmap.length === 0}
     />
 
@@ -228,6 +279,28 @@ const statsLoading = $derived(dashboardState.loading && !dashboardState.stats)
                 labels={[...DAY_LABELS]}
                 loading={dashboardState.loading && dashboardState.heatmap.length === 0}
                 height={130}
+            />
+        </section>
+    </div>
+
+    <!-- Privacy + time spent -->
+    <div class="main-grid even">
+        <section class="section">
+            <h2 class="section-title">Tracking &amp; Privacy</h2>
+            <p class="section-subtitle">Tracking parameters stripped from your links</p>
+            <TrackingCard
+                tracking={dashboardState.tracking}
+                totalVisits={dashboardState.stats?.TotalVisits ?? 0}
+                loading={dashboardState.loading && dashboardState.tracking === null}
+            />
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">Time Spent</h2>
+            <p class="section-subtitle">Based on browsers that report visit duration</p>
+            <TimeSpentCard
+                timeSpent={dashboardState.timeSpent}
+                loading={dashboardState.loading && dashboardState.timeSpent === null}
             />
         </section>
     </div>

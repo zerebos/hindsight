@@ -90,6 +90,31 @@ var knownTrackingParams = map[string]struct{}{
 	"referrer": {},
 }
 
+// IsTrackingParam reports whether name is a known tracking parameter that
+// normalization strips.
+func IsTrackingParam(name string) bool {
+	_, ok := knownTrackingParams[name]
+	return ok
+}
+
+// TrackingParamsIn returns the known tracking parameters present in rawURL's
+// query string, in no particular order. Used by analytics to detect which
+// visits actually carried trackers (raw_url alone is insufficient, since it
+// is also set by non-tracking normalization such as fragment stripping).
+func TrackingParamsIn(rawURL string) []string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil
+	}
+	var found []string
+	for param := range u.Query() {
+		if IsTrackingParam(param) {
+			found = append(found, param)
+		}
+	}
+	return found
+}
+
 // NormalizeURL strips known tracking parameters from a URL and normalizes
 // its format. Returns the normalized URL and the original URL if
 // normalization changed it (empty string if unchanged).

@@ -110,6 +110,18 @@ func (s *DashboardService) GetBrowserBreakdown(filter app.DashboardFilter) ([]db
 	return s.app.GetBrowserBreakdown(s.ctx, filter)
 }
 
+func (s *DashboardService) GetTrackingStats(filter app.DashboardFilter) (idb.TrackingStats, error) {
+	return s.app.GetTrackingStats(s.ctx, filter)
+}
+
+func (s *DashboardService) GetDomainInsights(filter app.DashboardFilter) (app.DomainInsights, error) {
+	return s.app.GetDomainInsights(s.ctx, filter)
+}
+
+func (s *DashboardService) GetTimeSpent(filter app.DashboardFilter) (app.TimeSpent, error) {
+	return s.app.GetTimeSpent(s.ctx, filter)
+}
+
 // ----------------------------------------------------------------
 // SearchService
 // ----------------------------------------------------------------

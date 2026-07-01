@@ -44,3 +44,118 @@ export class HeatmapCell {
         return new HeatmapCell($$parsedSource as Partial<HeatmapCell>);
     }
 }
+
+/**
+ * TrackedDomainCount is a domain and the number of its visits that carried
+ * at least one tracking parameter.
+ */
+export class TrackedDomainCount {
+    "Host": string;
+    "Count": number;
+
+    /** Creates a new TrackedDomainCount instance. */
+    constructor($$source: Partial<TrackedDomainCount> = {}) {
+        if (!("Host" in $$source)) {
+            this["Host"] = "";
+        }
+        if (!("Count" in $$source)) {
+            this["Count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TrackedDomainCount instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TrackedDomainCount {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TrackedDomainCount($$parsedSource as Partial<TrackedDomainCount>);
+    }
+}
+
+/**
+ * TrackingParamCount is a tracking parameter and the number of visits
+ * (weighted by visit_count) whose original URL carried it.
+ */
+export class TrackingParamCount {
+    "Name": string;
+    "Count": number;
+
+    /** Creates a new TrackingParamCount instance. */
+    constructor($$source: Partial<TrackingParamCount> = {}) {
+        if (!("Name" in $$source)) {
+            this["Name"] = "";
+        }
+        if (!("Count" in $$source)) {
+            this["Count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TrackingParamCount instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TrackingParamCount {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TrackingParamCount($$parsedSource as Partial<TrackingParamCount>);
+    }
+}
+
+/**
+ * TrackingStats summarizes tracking-parameter exposure across a set of visits.
+ */
+export class TrackingStats {
+    /**
+     * visits (visit_count weighted) carrying >= 1 known tracker
+     */
+    "TrackedVisits": number;
+
+    /**
+     * most common tracking parameters, descending
+     */
+    "TopParams": TrackingParamCount[];
+
+    /**
+     * domains with the most tracked visits, descending
+     */
+    "TopDomains": TrackedDomainCount[];
+
+    /** Creates a new TrackingStats instance. */
+    constructor($$source: Partial<TrackingStats> = {}) {
+        if (!("TrackedVisits" in $$source)) {
+            this["TrackedVisits"] = 0;
+        }
+        if (!("TopParams" in $$source)) {
+            this["TopParams"] = [];
+        }
+        if (!("TopDomains" in $$source)) {
+            this["TopDomains"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TrackingStats instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TrackingStats {
+        const $$createField1_0 = $$createType1;
+        const $$createField2_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("TopParams" in $$parsedSource) {
+            $$parsedSource["TopParams"] = $$createField1_0($$parsedSource["TopParams"]);
+        }
+        if ("TopDomains" in $$parsedSource) {
+            $$parsedSource["TopDomains"] = $$createField2_0($$parsedSource["TopDomains"]);
+        }
+        return new TrackingStats($$parsedSource as Partial<TrackingStats>);
+    }
+}
+
+// Private type creation functions
+const $$createType0 = TrackingParamCount.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = TrackedDomainCount.createFrom;
+const $$createType3 = $Create.Array($$createType2);

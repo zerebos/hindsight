@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { GetVisitTimeSeriesRow, GetTopDomainsRow, GetDashboardStatsRow } from '$dbgen/models'
 import type { HeatmapCell } from '$db/models'
+import type { DomainInsights } from '$happ/models'
 import {
     dailyAverage,
     busiestDay,
@@ -19,10 +20,13 @@ interface Props {
     heatmap: HeatmapCell[]
     topDomains: GetTopDomainsRow[]
     stats: GetDashboardStatsRow | null
+    domainInsights?: DomainInsights | null
+    /** True when a bounded time range is selected (makes "new domains" meaningful). */
+    bounded?: boolean
     loading?: boolean
 }
 
-let { timeSeries, heatmap, topDomains, stats, loading = false }: Props = $props()
+let { timeSeries, heatmap, topDomains, stats, domainInsights = null, bounded = false, loading = false }: Props = $props()
 
 interface Insight {
     label: string
@@ -63,7 +67,14 @@ const insights = $derived.by<Insight[]>(() => {
     if (heatmap.length > 0) out.push({ label: 'Weekend share', value: formatPercent(ws), detail: 'of visits on Sat/Sun' })
 
     const conc = domainConcentration(topDomains as { Host: string; TotalVisits: number }[], stats?.TotalVisits ?? 0)
-    if (conc) out.push({ label: 'Top-3 focus', value: formatPercent(conc.top3Share), detail: 'of visits from 3 domains' })
+    if (conc) out.push({ label: 'Top-10 focus', value: formatPercent(conc.top10Share), detail: 'of visits from 10 domains' })
+
+    if (domainInsights && bounded) {
+        out.push({ label: 'New domains', value: formatNumber(domainInsights.NewDomains), detail: 'first seen this period' })
+    }
+    if (domainInsights) {
+        out.push({ label: 'One-off domains', value: formatNumber(domainInsights.OneOffDomains), detail: 'visited only once' })
+    }
 
     const mo = momentum(series)
     if (mo !== null) out.push({ label: 'Momentum', value: formatSigned(mo), detail: 'vs first half of period', tone: mo >= 0 ? 'up' : 'down' })
