@@ -90,6 +90,37 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestLoadNormalizesTheme(t *testing.T) {
+	cases := map[string]string{
+		"system":  "default", // legacy default value
+		"":        "default",
+		"bogus":   "default",
+		"default": "default",
+		"light":   "light",
+		"dark":    "dark",
+		"amoled":  "amoled",
+	}
+
+	for stored, want := range cases {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "config.toml")
+
+		s := Defaults()
+		s.General.Theme = stored
+		if err := Save(path, s); err != nil {
+			t.Fatalf("Save(theme=%q) error = %v", stored, err)
+		}
+
+		got, err := Load(path)
+		if err != nil {
+			t.Fatalf("Load(theme=%q) error = %v", stored, err)
+		}
+		if got.General.Theme != want {
+			t.Fatalf("Load() theme = %q for stored %q, want %q", got.General.Theme, stored, want)
+		}
+	}
+}
+
 func TestXdgDataBaseLinuxBehavior(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("linux-specific behavior")

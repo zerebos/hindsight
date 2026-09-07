@@ -2,11 +2,9 @@ import {SvelteSet, SvelteMap} from 'svelte/reactivity';
 import type {Source} from '$hindsight/internal/db/generated/models';
 import type {SyncResult} from '$hindsight/internal/ingestion/models';
 
-// ThemePreference is what the user selects; 'default' follows the OS color
-// scheme. ResolvedTheme is what actually gets rendered as a `.shell` class —
-// 'default' is never rendered directly (there are no CSS variables for it), so
-// it is resolved to 'light' or 'dark' via prefers-color-scheme.
-export type ThemePreference = 'light' | 'dark' | 'default' | 'amoled';
+// ResolvedTheme is what actually gets rendered as a `.shell` class. The stored
+// preference is a plain string ('default', 'light', 'dark', 'amoled', or a
+// legacy/unknown value); only these three have CSS variables defined.
 export type ResolvedTheme = 'light' | 'dark' | 'amoled';
 
 function prefersDark(): boolean {
@@ -14,8 +12,18 @@ function prefersDark(): boolean {
         && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
 }
 
-function resolveTheme(pref: ThemePreference): ResolvedTheme {
-    return pref === 'default' ? (prefersDark() ? 'dark' : 'light') : pref;
+// followsOS is true for any preference that isn't an explicit concrete theme —
+// 'default', the legacy 'system', '', or anything unrecognized — all of which
+// track the OS color scheme rather than a fixed appearance.
+function followsOS(pref: string): boolean {
+    return pref !== 'light' && pref !== 'dark' && pref !== 'amoled';
+}
+
+// resolveTheme maps a stored preference to a concrete rendered theme, so the UI
+// never ends up with no theme class (and thus no CSS variables) applied.
+function resolveTheme(pref: string): ResolvedTheme {
+    if (!followsOS(pref)) return pref as ResolvedTheme;
+    return prefersDark() ? 'dark' : 'light';
 }
 
 export const appState = $state({
@@ -28,22 +36,22 @@ export const appState = $state({
     theme: resolveTheme('default') as ResolvedTheme,
 });
 
-// The raw user preference, tracked so the OS listener below knows whether to
+// The raw stored preference, tracked so the OS listener below knows whether to
 // re-resolve when the system color scheme changes.
-let themePreference: ThemePreference = 'default';
+let themePreference = 'default';
 
-// applyTheme records the user's preference and updates the rendered theme,
-// resolving 'default' against the current OS color scheme.
-export function applyTheme(pref: ThemePreference) {
+// applyTheme records the stored preference and updates the rendered theme,
+// resolving OS-following preferences against the current OS color scheme.
+export function applyTheme(pref: string) {
     themePreference = pref;
     appState.theme = resolveTheme(pref);
 }
 
-// While the preference is 'default', follow live OS color-scheme changes.
+// While the preference follows the OS, track live color-scheme changes.
 if (typeof window !== 'undefined' && window.matchMedia) {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (themePreference === 'default') {
-            appState.theme = resolveTheme('default');
+        if (followsOS(themePreference)) {
+            appState.theme = resolveTheme(themePreference);
         }
     });
 }
