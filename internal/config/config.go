@@ -20,7 +20,7 @@ type Settings struct {
 type GeneralSettings struct {
 	LaunchAtLogin  bool   `toml:"launch_at_login"`
 	MinimizeToTray bool   `toml:"minimize_to_tray"`
-	Theme          string `toml:"theme"` // "system" | "light" | "dark"
+	Theme          string `toml:"theme"` // "default" | "light" | "dark" | "amoled"
 }
 
 type SyncSettings struct {
@@ -29,13 +29,32 @@ type SyncSettings struct {
 	SyncOnWake      bool `toml:"sync_on_wake"`
 }
 
+// validThemes is the set of theme values the UI knows how to render. Anything
+// else (the empty string, the legacy "system" value, or a typo in a
+// hand-edited config) is normalized to "default" on load.
+var validThemes = map[string]bool{
+	"default": true,
+	"light":   true,
+	"dark":    true,
+	"amoled":  true,
+}
+
+// normalizeTheme maps unknown or legacy theme values to "default" so consumers
+// never receive a theme they can't render.
+func normalizeTheme(theme string) string {
+	if validThemes[theme] {
+		return theme
+	}
+	return "default"
+}
+
 // Defaults returns a Settings with sensible out-of-the-box values.
 func Defaults() Settings {
 	return Settings{
 		General: GeneralSettings{
 			LaunchAtLogin:  false,
 			MinimizeToTray: true,
-			Theme:          "system",
+			Theme:          "default",
 		},
 		Sync: SyncSettings{
 			IntervalMinutes: 30,
@@ -141,6 +160,10 @@ func Load(path string) (Settings, error) {
 	if _, err := toml.DecodeFile(path, &s); err != nil {
 		return s, fmt.Errorf("decode config: %w", err)
 	}
+
+	// Normalize legacy/unknown values decoded from disk (e.g. an older config
+	// with Theme = "system") so callers always get a renderable theme.
+	s.General.Theme = normalizeTheme(s.General.Theme)
 
 	return s, nil
 }

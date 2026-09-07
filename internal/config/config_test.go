@@ -16,8 +16,8 @@ func TestDefaults(t *testing.T) {
 	if !got.General.MinimizeToTray {
 		t.Fatalf("MinimizeToTray = false, want true")
 	}
-	if got.General.Theme != "system" {
-		t.Fatalf("Theme = %q, want %q", got.General.Theme, "system")
+	if got.General.Theme != "default" {
+		t.Fatalf("Theme = %q, want %q", got.General.Theme, "default")
 	}
 	if got.Sync.IntervalMinutes != 30 {
 		t.Fatalf("IntervalMinutes = %d, want %d", got.Sync.IntervalMinutes, 30)
@@ -87,6 +87,37 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 
 	if got != want {
 		t.Fatalf("round-trip mismatch: got %+v want %+v", got, want)
+	}
+}
+
+func TestLoadNormalizesTheme(t *testing.T) {
+	cases := map[string]string{
+		"system":  "default", // legacy default value
+		"":        "default",
+		"bogus":   "default",
+		"default": "default",
+		"light":   "light",
+		"dark":    "dark",
+		"amoled":  "amoled",
+	}
+
+	for stored, want := range cases {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "config.toml")
+
+		s := Defaults()
+		s.General.Theme = stored
+		if err := Save(path, s); err != nil {
+			t.Fatalf("Save(theme=%q) error = %v", stored, err)
+		}
+
+		got, err := Load(path)
+		if err != nil {
+			t.Fatalf("Load(theme=%q) error = %v", stored, err)
+		}
+		if got.General.Theme != want {
+			t.Fatalf("Load() theme = %q for stored %q, want %q", got.General.Theme, stored, want)
+		}
 	}
 }
 

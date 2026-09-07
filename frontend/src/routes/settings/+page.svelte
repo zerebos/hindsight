@@ -9,7 +9,7 @@ import {
     SyncSource,
 } from '$hindsight/sourceservice'
 import { Settings } from '$hindsight/internal/config/models'
-import { appState, markSyncStarted, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
+import { appState, applyTheme, markSyncStarted, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
 import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
 import { nullStr, formatDate, formatRelative } from '$lib/utils'
 
@@ -37,7 +37,7 @@ async function save() {
     if (!settings) return
     try {
         await UpdateSettings(settings)
-        appState.theme = settings.General.Theme as 'light' | 'dark' | 'default' | 'amoled'
+        applyTheme(settings.General.Theme)
         clearTimeout(savedTimer)
         savedIndicator = true
         savedTimer = setTimeout(() => savedIndicator = false, 2000)
