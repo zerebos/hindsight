@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/zerebos/hindsight/internal/browser"
@@ -22,9 +23,14 @@ type App struct {
 	database  *sql.DB
 	queries   *dbgen.Queries
 	syncer    *ingestion.Syncer
-	settings  config.Settings
 	configDir string
 	dataDir   string
+
+	// settingsMu guards settings and onSettingsChanged, which are read from
+	// desktop goroutines (the sync ticker, wake events, the window-close hook)
+	// concurrently with writes from UpdateSettings.
+	settingsMu sync.RWMutex
+	settings   config.Settings
 
 	// onSettingsChanged, if set, is invoked after settings are successfully
 	// persisted. It lets the desktop layer react to changes (toggling
@@ -271,6 +277,8 @@ func (a *App) SearchVisits(ctx context.Context, p SearchParams) (SearchResults, 
 
 // GetSettings returns the current application settings.
 func (a *App) GetSettings() config.Settings {
+	a.settingsMu.RLock()
+	defer a.settingsMu.RUnlock()
 	return a.settings
 }
 
@@ -279,19 +287,29 @@ func (a *App) GetSettings() config.Settings {
 // applied settings so it can act only on the fields that actually changed.
 // Pass nil to clear. Only the desktop app uses this.
 func (a *App) SetSettingsChangeHandler(fn func(old, updated config.Settings)) {
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
 	a.onSettingsChanged = fn
 }
 
 // UpdateSettings persists new settings to disk and updates the in-memory state.
 // On success it notifies the registered settings-change handler, if any.
 func (a *App) UpdateSettings(settings config.Settings) error {
-	old := a.settings
 	if err := config.Save(config.ConfigPath(a.configDir), settings); err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
+
+	// Swap the in-memory settings and snapshot the handler under the lock, but
+	// invoke the handler outside the critical section: it may call back into
+	// GetSettings (e.g. the wake handler), which would deadlock on the RLock.
+	a.settingsMu.Lock()
+	old := a.settings
 	a.settings = settings
-	if a.onSettingsChanged != nil {
-		a.onSettingsChanged(old, settings)
+	onChanged := a.onSettingsChanged
+	a.settingsMu.Unlock()
+
+	if onChanged != nil {
+		onChanged(old, settings)
 	}
 	return nil
 }

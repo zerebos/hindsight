@@ -5,7 +5,8 @@ import { goto } from '$app/navigation'
 import { Events } from '@wailsio/runtime'
 import { GetSources } from '$hindsight/sourceservice'
 import { GetSettings } from '$hindsight/settingsservice'
-import { appState, markSyncStarted, markSyncComplete, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
+import { appState, applyTheme, markSyncStarted, markSyncComplete, markAllSyncsComplete, markSyncError } from '$lib/stores/app.svelte'
+import type { ThemePreference } from '$lib/stores/app.svelte'
 import { invalidateDashboard } from '$lib/stores/dashboard.svelte'
 import type { SyncResult } from '$hindsight/internal/ingestion/models'
 import '../app.css'
@@ -22,7 +23,7 @@ onMount(async () => {
     // appearance survives a restart.
     try {
         const settings = await GetSettings()
-        appState.theme = settings.General.Theme as 'light' | 'dark' | 'default' | 'amoled'
+        applyTheme(settings.General.Theme as ThemePreference)
     } catch (err) {
         appState.globalError = String(err)
     }

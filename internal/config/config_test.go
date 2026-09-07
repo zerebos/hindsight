@@ -16,8 +16,8 @@ func TestDefaults(t *testing.T) {
 	if !got.General.MinimizeToTray {
 		t.Fatalf("MinimizeToTray = false, want true")
 	}
-	if got.General.Theme != "system" {
-		t.Fatalf("Theme = %q, want %q", got.General.Theme, "system")
+	if got.General.Theme != "default" {
+		t.Fatalf("Theme = %q, want %q", got.General.Theme, "default")
 	}
 	if got.Sync.IntervalMinutes != 30 {
 		t.Fatalf("IntervalMinutes = %d, want %d", got.Sync.IntervalMinutes, 30)
