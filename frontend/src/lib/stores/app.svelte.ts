@@ -9,7 +9,8 @@ export type ResolvedTheme = 'light' | 'dark' | 'amoled';
 
 function prefersDark(): boolean {
     return typeof window !== 'undefined'
-        && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
 // followsOS is true for any preference that isn't an explicit concrete theme —
